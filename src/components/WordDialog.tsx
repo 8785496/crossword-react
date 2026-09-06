@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { PlacedWord } from '../types';
+import { displayClue } from '../lib/puzzle';
 
 interface Props {
   word: PlacedWord;
@@ -72,7 +73,7 @@ export default function WordDialog({
               type="button"
               className="chip chip-btn"
               onClick={() => onSwitchWord(altWord.id)}
-              title={altWord.clue}
+              title={displayClue(altWord.clue)}
             >
               №{altWord.number} {altWord.direction === 'across' ? '→' : '↓'}
             </button>
@@ -83,7 +84,7 @@ export default function WordDialog({
           {word.direction === 'across' ? 'По горизонтали' : 'По вертикали'} · {word.answer.length}{' '}
           {plural(word.answer.length)}
         </div>
-        <p className="dialog-clue">{word.clue}</p>
+        <p className="dialog-clue">{displayClue(word.clue)}</p>
 
         <div className="slots" aria-hidden="true">
           {slots.map((ch, i) => (

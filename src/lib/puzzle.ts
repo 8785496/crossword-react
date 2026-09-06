@@ -269,3 +269,8 @@ export function validatePuzzle(data: unknown): ValidatedPuzzle {
 export function compareByNumber(a: PlacedWord, b: PlacedWord): number {
   return a.number - b.number;
 }
+
+/** Clue text for display: always starts with a capital letter. */
+export function displayClue(clue: string): string {
+  return clue.charAt(0).toUpperCase() + clue.slice(1);
+}

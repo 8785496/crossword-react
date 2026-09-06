@@ -1,5 +1,5 @@
 import type { ValidatedPuzzle } from '../types';
-import { compareByNumber } from '../lib/puzzle';
+import { compareByNumber, displayClue } from '../lib/puzzle';
 
 interface Props {
   puzzle: ValidatedPuzzle;
@@ -63,7 +63,7 @@ function ClueSection({ title, words, filled, checkedWordIds, activeWordId, onPic
         return (
           <button key={w.id} type="button" className={cls.join(' ')} onClick={() => onPick(w.id)}>
             <span className="clue-num">{w.number}</span>
-            <span className="clue-text">{w.clue}</span>
+            <span className="clue-text">{displayClue(w.clue)}</span>
             <span className="clue-len">
               {checked ? '✓ ' : ''}
               {w.answer.length}
