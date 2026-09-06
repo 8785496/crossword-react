@@ -8,6 +8,8 @@ import Welcome from './components/Welcome';
 import ErrorDialog from './components/ErrorDialog';
 import { IconX } from './components/icons';
 import { PuzzleError, cellKey, normalizeAnswer, parsePuzzle, validatePuzzle } from './lib/puzzle';
+import { parseCsvWords, readFileText } from './lib/csv';
+import { generatePuzzle, type GridProfile } from './lib/generator';
 import { clearPersistedState, loadSavedState, persistState } from './lib/storage';
 import { applyTheme, loadTheme } from './themes';
 import type { Direction, PlacedWord, ValidatedPuzzle } from './types';
@@ -58,6 +60,7 @@ export default function App() {
   const [draft, setDraft] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loadError, setLoadError] = useState<string[] | null>(null);
+  const [loadWarning, setLoadWarning] = useState<string[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Apply the theme and persist it.
@@ -111,12 +114,37 @@ export default function App() {
     setAnswersShown(false);
     setReport(null);
     setDialog(null);
+    setLoadWarning(null);
+  };
+
+  // Grid shape preferences for the current device, read once per CSV load:
+  // phones get a narrow, clearly vertical grid, tablets a moderate portrait.
+  const gridProfile = (): GridProfile => {
+    const shortSide = Math.min(window.innerWidth, window.innerHeight);
+    return shortSide < 480
+      ? { maxW: 12, maxH: 30, targetRatio: 1.5 }
+      : { maxW: 16, maxH: 32, targetRatio: 1.2 };
   };
 
   const handleFile = async (file: File) => {
     try {
-      const text = await file.text();
-      applyLoaded(parsePuzzle(text), text);
+      const text = await readFileText(file);
+      if (/\.csv$/i.test(file.name)) {
+        const words = parseCsvWords(text);
+        const { puzzle, isolated } = generatePuzzle(words, gridProfile(), {
+          title: file.name.replace(/\.[^.]+$/, ''),
+        });
+        // The generated layout is persisted as normal JSON, so progress
+        // survives a restart and is restored through validatePuzzle.
+        applyLoaded(validatePuzzle(puzzle), JSON.stringify(puzzle));
+        if (isolated.length > 0) {
+          setLoadWarning([
+            `Эти слова удалось разместить без пересечений с другими: ${isolated.join(', ')}.`,
+          ]);
+        }
+      } else {
+        applyLoaded(parsePuzzle(text), text);
+      }
     } catch (e) {
       setLoadError(e instanceof PuzzleError ? e.issues : [`Прочитать файл не удалось: ${String(e)}`]);
     }
@@ -315,10 +343,18 @@ export default function App() {
 
       {loadError && <ErrorDialog issues={loadError} onClose={() => setLoadError(null)} />}
 
+      {loadWarning && (
+        <ErrorDialog
+          title="Обратите внимание"
+          issues={loadWarning}
+          onClose={() => setLoadWarning(null)}
+        />
+      )}
+
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,application/json"
+        accept=".json,.csv,application/json,text/csv"
         className="hidden-input"
         onChange={(e) => {
           const f = e.target.files?.[0];

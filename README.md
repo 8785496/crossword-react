@@ -7,7 +7,9 @@ the **New** button.
 ## Features
 
 - 📱 Portrait layout for tablets, installable as a PWA (Chrome/Edge: "Install app"), works offline
-- 📂 The **New** button opens a JSON file with a crossword
+- 📂 The **New** button opens a JSON file with a crossword — or a CSV word list
+  (column 1 = word, column 2 = question) and builds the grid automatically,
+  tuned to the screen (taller and narrower on phones)
 - ✅ The **Check** button marks wrong letters in red and shows a report; checked words stay highlighted in green
 - 👁 The **Show answers** button reveals the full solution; pressing it again hides it
 - 📊 Filled-word counters sit next to the across/down clue headings (there is no header above the grid — the puzzle title lives in the browser tab)
@@ -91,6 +93,38 @@ The file is validated on open: if there are problems, a list of concrete issues
 is shown (letter conflicts, out-of-bounds words, touching words, etc.) and the
 crossword is not loaded.
 
+## CSV word lists
+
+Instead of a ready-made JSON crossword, the **New** button also accepts a CSV
+file with a plain word list: **first column — the answer word, second column —
+the question**. The app generates the crossword grid itself at load time and
+then treats it exactly like a JSON crossword (check, reveal, persistence).
+
+Rules:
+
+- Delimiters `;`, `,`, and tab are auto-detected per file; fields may be quoted
+  with `"` (a doubled `""` is an escape), so questions may contain commas and
+  newlines. If a question contains a bare delimiter in a hand-written file,
+  the extra columns are glued back into the question.
+- Encoding: UTF-8 (with or without BOM) or Windows-1251 (the Excel default for
+  Cyrillic locales).
+- An optional header row («Слово»/«Вопрос», «Word»/«Question», …) is detected
+  and skipped; a row whose word cell has fewer than two letters (e.g. «№»)
+  is treated as a header too.
+- Words are normalized like JSON answers: uppercase, `Ё` → `Е`, letters only
+  (spaces and hyphens are dropped), minimum length 2. Duplicate words are an
+  error, as is a row without a question.
+- Limits: at most 60 words, a word is at most 60 letters.
+- The puzzle title is the file name without the extension.
+
+The grid is generated on the device: phones (short side < 480 px) get a narrow,
+vertically elongated grid targeting a height ≈ 1.5 × width; other screens
+target ≈ 1.2. The same file always produces the same layout — the RNG is
+seeded from the word list. Words that cannot cross anything are placed
+standalone (which the contract allows) and reported in a notice after loading.
+The generated layout is stored like a JSON file, so progress survives
+a restart and is independent of later screen-size changes.
+
 ### Samples
 
 Ready-made files live in `public/samples/` (they can be opened in the app) and
@@ -105,6 +139,8 @@ are copied into `src/samples/` (bundled as examples on the welcome screen):
 src/
   types.ts               # JSON contract (types)
   lib/puzzle.ts          # Parsing, validation, numbering
+  lib/csv.ts             # CSV word-list parsing (delimiters, encodings)
+  lib/generator.ts       # Grid generation from a word list
   lib/storage.ts         # Persisting state to localStorage
   themes.ts              # Theme list, applying themes
   components/
@@ -114,7 +150,7 @@ src/
     ClueLists.tsx        # Clue lists (across / down)
     Footer.tsx           # Footer: New / Check / Settings
     Welcome.tsx          # Welcome screen
-    ErrorDialog.tsx      # JSON validation errors
+    ErrorDialog.tsx      # Load errors and post-load notices
   App.tsx                # App state and logic
 scripts/
   build-samples.mjs      # Sample generator (backtracking search)

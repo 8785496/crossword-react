@@ -18,10 +18,14 @@ npm run build      # tsc --noEmit && vite build — run before finishing any cha
 npm run preview    # serves dist/ on :4173 (PWA works here)
 npm run samples    # regenerate sample crosswords (do not hand-edit them)
 npm run icons      # regenerate PWA icons
+npm run verify     # node checks for the CSV/generator pipeline (uses esbuild
+                   # from Vite's dependencies; no extra installs)
 ```
 
-There are no tests; the minimum verification bar is a clean `npm run build`
-plus manually loading a sample in `npm run preview` (grid renders, word dialog
+There are no unit tests; the minimum verification bar is a clean
+`npm run build`, `npm run verify` (covers CSV parsing and grid generation end
+to end, including contract validation of every generated layout), plus
+manually loading a sample in `npm run preview` (grid renders, word dialog
 opens, Check marks wrong letters).
 
 ## Architecture
@@ -31,7 +35,25 @@ in `src/lib/puzzle.ts` → a `ValidatedPuzzle` (`words` + a `cells` map keyed by
 `"row:col"`, 0-based) → `CrosswordGrid`. Entered letters live in
 `App.tsx` state as `entries: Record<"row:col", letter>`.
 
+CSV word lists take a different front path: `src/lib/csv.ts` parses the file
+(words + clues, per-line errors) → `src/lib/generator.ts` places the words and
+emits a contract JSON → that JSON goes through the normal `validatePuzzle`
+path and is persisted as `raw`, so restore/check/persistence are unchanged.
+
 - `src/lib/puzzle.ts` — the single source of truth for contract validation and automatic numbering.
+- `src/lib/csv.ts` — CSV parsing: delimiter sniffing (`;` `,` tab), quoted
+  fields, UTF-8 with a Windows-1251 fallback, header-row detection, errors by
+  line number.
+- `src/lib/generator.ts` — runtime grid generation: backtracking search
+  ported from `scripts/build-samples.mjs` with an incremental placement-validity
+  check (cell keys are `cellKey()` "r:c" everywhere — do not mix in "r,c").
+  The RNG is seeded from the word list (same file → same grid). Layout scoring
+  targets a device-specific height/width ratio from `GridProfile` (phone
+  short side < 480 px → maxW 12, ratio 1.5; else maxW 16, ratio 1.2). If no
+  fully crossing layout exists, a relaxed pass places leftover words
+  standalone (one-cell moat); `generatePuzzle` returns them as `isolated` and
+  App shows them in a notice dialog. Time budget: 3 s safety net; attempt
+  counts shrink with word count.
 - `src/App.tsx` — all app state: puzzle, entries, marks, checked words, answers reveal, dialogs, theme.
 - `src/components/icons.tsx` — inline SVG icons stroked with `currentColor`, so icon color always follows the active theme.
 - `src/themes.ts` + `src/styles.css` — themes are CSS variables on
@@ -69,6 +91,12 @@ in `src/lib/puzzle.ts` → a `ValidatedPuzzle` (`words` + a `cells` map keyed by
 - `answersShown` toggles a display-only reveal of the solution: cells render
   `info.solution` instead of `entries`, never mutating the entries themselves;
   the toggle resets when a new puzzle loads.
+- `ErrorDialog` doubles as the post-load notice dialog: pass `title`
+  (e.g. «Обратите внимание» for the isolated-words warning) and keep the
+  Russian strings.
+- The file input accepts `.json` and `.csv`; `handleFile` branches on the
+  file extension. Non-CSV files keep the raw text as `raw`; CSV loads store
+  the generated JSON instead.
 
 ## Persistence
 

@@ -2,10 +2,12 @@ import { IconX } from './icons';
 
 interface Props {
   issues: string[];
+  /** Заголовок; по умолчанию — сообщение об ошибке загрузки. */
+  title?: string;
   onClose: () => void;
 }
 
-export default function ErrorDialog({ issues, onClose }: Props) {
+export default function ErrorDialog({ issues, title, onClose }: Props) {
   return (
     <div
       className="overlay"
@@ -13,9 +15,14 @@ export default function ErrorDialog({ issues, onClose }: Props) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="dialog" role="alertdialog" aria-modal="true" aria-label="Ошибка загрузки">
+      <div
+        className="dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={title ?? 'Ошибка загрузки'}
+      >
         <div className="dialog-head">
-          <h2>Не удалось открыть файл</h2>
+          <h2>{title ?? 'Не удалось открыть файл'}</h2>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
             <IconX size={18} />
           </button>

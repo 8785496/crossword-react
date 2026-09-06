@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "samples": "node scripts/build-samples.mjs",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "verify": "node scripts/verify-csv.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
