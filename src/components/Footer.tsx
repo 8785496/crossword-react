@@ -53,7 +53,7 @@ export default function Footer({
       />
       <FooterButton
         icon={answersShown ? <IconEyeOff /> : <IconEye />}
-        label={answersShown ? 'Скрыть ответы' : 'Показать ответы'}
+        label={answersShown ? 'Скрыть' : 'Ответы'}
         onClick={onToggleAnswers}
         disabled={!hasPuzzle}
         active={answersShown}

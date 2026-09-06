@@ -372,23 +372,25 @@ body {
   gap: 4px;
   background: var(--surface);
   border-top: 1px solid var(--surface-2);
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  padding: 5px 8px calc(5px + env(safe-area-inset-bottom));
 }
 
 .footer-btn {
   flex: 1;
-  min-height: 54px;
+  min-height: 46px;
+  padding: 2px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text);
   font-family: inherit;
   font-size: 0.78rem;
+  white-space: nowrap;
   cursor: pointer;
 }
 
