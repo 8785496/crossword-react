@@ -18,15 +18,20 @@ npm run build      # tsc --noEmit && vite build — run before finishing any cha
 npm run preview    # serves dist/ on :4173 (PWA works here)
 npm run samples    # regenerate sample crosswords (do not hand-edit them)
 npm run icons      # regenerate PWA icons
+npm run test       # unit tests (Vitest) for the lib/ modules
+npm run test:watch # unit tests in watch mode
 npm run verify     # node checks for the CSV/generator pipeline (uses esbuild
                    # from Vite's dependencies; no extra installs)
 ```
 
-There are no unit tests; the minimum verification bar is a clean
-`npm run build`, `npm run verify` (covers CSV parsing and grid generation end
-to end, including contract validation of every generated layout), plus
-manually loading a sample in `npm run preview` (grid renders, word dialog
-opens, Check marks wrong letters).
+Unit tests live next to the sources as `src/lib/*.test.ts` (puzzle
+validation, CSV parsing, grid generation, storage); there is no React
+component testing. The minimum verification bar is a clean
+`npm run build`, `npm run test`, `npm run verify` (covers CSV parsing and
+grid generation end to end, including contract validation of every generated
+layout), plus manually loading a sample in `npm run preview` (grid renders,
+word dialog opens, Check marks wrong letters). CI runs test + verify + build
+on every push to `main`.
 
 ## Deployment
 

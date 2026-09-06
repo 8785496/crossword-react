@@ -25,6 +25,7 @@ npm install
 npm run dev        # development: http://localhost:5173
 npm run build      # type-check + production build into dist/
 npm run preview    # preview of the build: http://localhost:4173
+npm run test       # unit tests (Vitest) for the lib/ modules
 npm run samples    # regenerate the sample crosswords
 npm run icons      # regenerate the PWA icons
 ```
@@ -142,6 +143,7 @@ src/
   lib/csv.ts             # CSV word-list parsing (delimiters, encodings)
   lib/generator.ts       # Grid generation from a word list
   lib/storage.ts         # Persisting state to localStorage
+  lib/*.test.ts          # Unit tests for the lib modules (Vitest)
   themes.ts              # Theme list, applying themes
   components/
     CrosswordGrid.tsx    # The grid (CSS Grid, container queries)
