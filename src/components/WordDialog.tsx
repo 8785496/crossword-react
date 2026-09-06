@@ -1,0 +1,128 @@
+import { useEffect, useRef } from 'react';
+import type { PlacedWord } from '../types';
+
+interface Props {
+  word: PlacedWord;
+  /** The crossing word in the same cell (for switching direction). */
+  altWord: PlacedWord | null;
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onSubmit: () => void;
+  onClear: () => void;
+  onClose: () => void;
+  onSwitchWord: (id: string) => void;
+}
+
+function clean(value: string): string {
+  return value
+    .toUpperCase()
+    .replace(/Ё/g, 'Е')
+    .replace(/[^A-ZА-Я]/g, '');
+}
+
+export default function WordDialog({
+  word,
+  altWord,
+  draft,
+  onDraftChange,
+  onSubmit,
+  onClear,
+  onClose,
+  onSwitchWord,
+}: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, [word.id]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const letters = clean(draft);
+  const slots = Array.from({ length: word.answer.length }, (_, i) => letters[i] ?? '');
+
+  return (
+    <div
+      className="overlay"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="dialog" role="dialog" aria-modal="true" aria-label={`Ввод слова №${word.number}`}>
+        <div className="word-switch">
+          <span className="chip chip-active">
+            №{word.number} {word.direction === 'across' ? '→' : '↓'}
+          </span>
+          {altWord && (
+            <button
+              type="button"
+              className="chip chip-btn"
+              onClick={() => onSwitchWord(altWord.id)}
+              title={altWord.clue}
+            >
+              №{altWord.number} {altWord.direction === 'across' ? '→' : '↓'}
+            </button>
+          )}
+        </div>
+
+        <div className="dialog-meta">
+          {word.direction === 'across' ? 'По горизонтали' : 'По вертикали'} · {word.answer.length}{' '}
+          {plural(word.answer.length)}
+        </div>
+        <p className="dialog-clue">{word.clue}</p>
+
+        <div className="slots" aria-hidden="true">
+          {slots.map((ch, i) => (
+            <span key={i} className={`slot${ch ? ' filled' : ''}`}>
+              {ch || '\u00A0'}
+            </span>
+          ))}
+        </div>
+
+        <input
+          ref={inputRef}
+          className="word-input"
+          value={draft}
+          autoComplete="off"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="done"
+          maxLength={word.answer.length}
+          placeholder="Введите слово целиком"
+          onChange={(e) => onDraftChange(clean(e.target.value))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSubmit();
+          }}
+        />
+
+        <div className="dialog-actions">
+          <button type="button" className="btn ghost" onClick={onClear}>
+            Очистить
+          </button>
+          <button type="button" className="btn ghost" onClick={onClose}>
+            Отмена
+          </button>
+          <button type="button" className="btn primary" onClick={onSubmit}>
+            Готово
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function plural(n: number): string {
+  const d10 = n % 10;
+  const d100 = n % 100;
+  if (d10 === 1 && d100 !== 11) return 'буква';
+  if (d10 >= 2 && d10 <= 4 && (d100 < 12 || d100 > 14)) return 'буквы';
+  return 'букв';
+}
