@@ -287,7 +287,7 @@ body {
 .clue-columns {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 4px 16px;
+  gap: 2px 28px;
 }
 
 @media (min-width: 640px) {
@@ -300,24 +300,21 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 10px 0 8px;
+  margin: 8px 0 2px;
 }
 
 .clue-head h3 {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--muted);
 }
 
 .clue-progress {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
-  background: var(--surface-2);
-  border-radius: 999px;
-  padding: 3px 10px;
   white-space: nowrap;
 }
 
@@ -327,20 +324,27 @@ body {
   gap: 8px;
   width: 100%;
   text-align: left;
-  background: var(--surface);
-  border: 1.5px solid var(--surface-2);
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--surface-2);
+  border-radius: 0;
+  padding: 6px 8px;
+  margin: 0;
   color: var(--text);
   font-family: inherit;
-  font-size: 0.95rem;
-  line-height: 1.35;
+  font-size: 0.9rem;
+  line-height: 1.3;
   cursor: pointer;
 }
 
+.clue.active,
+.clue:active {
+  background: var(--word-bg);
+  border-radius: 8px;
+}
+
 .clue.active {
-  border-color: var(--accent);
+  border-bottom-color: transparent;
 }
 
 .clue.solved .clue-text {
@@ -357,7 +361,7 @@ body {
 .clue-len {
   margin-left: auto;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   white-space: nowrap;
 }
 
