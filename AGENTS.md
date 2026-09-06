@@ -1,4 +1,4 @@
-# AGENT.md
+# AGENTS.md
 
 Guidance for AI coding agents working in this repository.
 
@@ -28,6 +28,13 @@ to end, including contract validation of every generated layout), plus
 manually loading a sample in `npm run preview` (grid renders, word dialog
 opens, Check marks wrong letters).
 
+## Deployment
+
+Pushes to `main` build and deploy to GitHub Pages via
+`.github/workflows/deploy.yml`. `vite.config.ts` sets `base: './'` so the
+bundle works from a project subpath — keep it relative. The PWA needs HTTPS
+(or `npm run preview`), not the plain dev server.
+
 ## Architecture
 
 Data flow: a JSON file (or a bundled sample) → `parsePuzzle` / `validatePuzzle`
@@ -48,8 +55,10 @@ path and is persisted as `raw`, so restore/check/persistence are unchanged.
   ported from `scripts/build-samples.mjs` with an incremental placement-validity
   check (cell keys are `cellKey()` "r:c" everywhere — do not mix in "r,c").
   The RNG is seeded from the word list (same file → same grid). Layout scoring
-  targets a device-specific height/width ratio from `GridProfile` (phone
-  short side < 480 px → maxW 12, ratio 1.5; else maxW 16, ratio 1.2). If no
+  targets a device-specific height/width ratio from `GridProfile`
+  (`src/App.tsx` `gridProfile()`: phone short side < 480 px → maxW 14,
+  target ratio 1.1; else maxW 20, target ratio 0.8 — a ratio below 1 means
+  the grid is wider than tall). If no
   fully crossing layout exists, a relaxed pass places leftover words
   standalone (one-cell moat); `generatePuzzle` returns them as `isolated` and
   App shows them in a notice dialog. Time budget: 3 s safety net; attempt
