@@ -10,7 +10,7 @@
  *  - the RNG is seeded from the word list, so the same file always yields
  *    the same grid;
  *  - the layout scoring targets a device-specific height/width ratio
- *    (phones get a narrow, vertically elongated grid);
+ *    (a ratio below 1 spreads the grid horizontally, more cells across);
  *  - a relaxed fallback pass places words standalone (isolated, with one
  *    empty cell around) when no fully crossing layout exists;
  *  - a time budget keeps a pathological word list from freezing the UI.
@@ -25,7 +25,7 @@ export interface GeneratorWord {
   clue: string;
 }
 
-/** Grid shape limits and the preferred height/width ratio for a device. */
+/** Grid shape limits and the preferred height/width ratio (< 1 means wide). */
 export interface GridProfile {
   maxW: number;
   maxH: number;
@@ -119,7 +119,7 @@ function layoutScore(box: Box, targetRatio: number): number {
 }
 
 function isGoodEnough(box: Box, targetRatio: number): boolean {
-  return box.h >= box.w && Math.abs(box.h / box.w - targetRatio) <= 0.25;
+  return Math.abs(box.h / box.w - targetRatio) <= 0.25;
 }
 
 function placementCells(p: Placement): { row: number; col: number }[] {

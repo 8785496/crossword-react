@@ -118,12 +118,13 @@ export default function App() {
   };
 
   // Grid shape preferences for the current device, read once per CSV load:
-  // phones get a narrow, clearly vertical grid, tablets a moderate portrait.
+  // phones get a compact, slightly vertical grid, tablets a wide layout
+  // with more cells across than down (targetRatio is height / width).
   const gridProfile = (): GridProfile => {
     const shortSide = Math.min(window.innerWidth, window.innerHeight);
     return shortSide < 480
-      ? { maxW: 12, maxH: 30, targetRatio: 1.5 }
-      : { maxW: 16, maxH: 32, targetRatio: 1.2 };
+      ? { maxW: 14, maxH: 26, targetRatio: 1.1 }
+      : { maxW: 20, maxH: 32, targetRatio: 0.8 };
   };
 
   const handleFile = async (file: File) => {
