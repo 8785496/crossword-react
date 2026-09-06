@@ -72,7 +72,9 @@ path and is persisted as `raw`, so restore/check/persistence are unchanged.
 - `src/components/icons.tsx` — inline SVG icons stroked with `currentColor`, so icon color always follows the active theme.
 - `src/themes.ts` + `src/styles.css` — themes are CSS variables on
   `[data-theme=…].` To add a theme: extend `THEMES` (with swatch colors) and add
-  a CSS variable block.
+  a CSS variable block. Set `--surface-glass` there too (the translucent footer
+  background): without it the theme inherits the light theme's glass; pin it to
+  an opaque color to opt out (the contrast theme does).
 - `public/sw.js` — service worker (network-first navigations, cache-first
   assets). Bump the `CACHE` version constant when the shell changes, so
   installed PWAs pick up the new build.

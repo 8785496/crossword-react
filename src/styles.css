@@ -3,6 +3,7 @@
   color-scheme: light;
   --app-bg: #f1f3f7;
   --surface: #ffffff;
+  --surface-glass: rgba(255, 255, 255, 0.72);
   --surface-2: #e8ebf2;
   --text: #1a1d29;
   --muted: #5b6472;
@@ -26,6 +27,7 @@
   color-scheme: dark;
   --app-bg: #0e1320;
   --surface: #171e2e;
+  --surface-glass: rgba(23, 30, 46, 0.68);
   --surface-2: #232c44;
   --text: #e6e9f2;
   --muted: #98a2b8;
@@ -49,6 +51,7 @@
   color-scheme: light;
   --app-bg: #eee3cc;
   --surface: #faf3e0;
+  --surface-glass: rgba(250, 243, 224, 0.72);
   --surface-2: #eadfc6;
   --text: #3b2f22;
   --muted: #857458;
@@ -72,6 +75,7 @@
   color-scheme: light;
   --app-bg: #d9ecfa;
   --surface: #f2f9ff;
+  --surface-glass: rgba(242, 249, 255, 0.72);
   --surface-2: #d3e7f6;
   --text: #0c3350;
   --muted: #4d7a9b;
@@ -95,6 +99,8 @@
   color-scheme: dark;
   --app-bg: #000000;
   --surface: #000000;
+  /* Opt out of the translucent footer: this theme exists for maximum contrast. */
+  --surface-glass: #000000;
   --surface-2: #1c1c1c;
   --text: #ffffff;
   --muted: #cccccc;
@@ -118,6 +124,7 @@
   color-scheme: light;
   --app-bg: #fbe9f1;
   --surface: #fff7fb;
+  --surface-glass: rgba(255, 247, 251, 0.72);
   --surface-2: #f6dbe7;
   --text: #4a1533;
   --muted: #a05c82;
@@ -377,6 +384,16 @@ body {
   background: var(--surface);
   border-top: 1px solid var(--surface-2);
   padding: 5px 8px calc(5px + env(safe-area-inset-bottom));
+}
+
+/* Frosted glass, but only where blur is supported. Themes opt out by
+   pinning --surface-glass to an opaque color (contrast does). */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .footer {
+    background: var(--surface-glass, var(--surface));
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    backdrop-filter: blur(16px) saturate(1.4);
+  }
 }
 
 .footer-btn {
