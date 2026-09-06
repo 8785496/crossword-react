@@ -36,9 +36,4 @@ export function applyTheme(id: string): void {
   } catch {
     /* ignore */
   }
-  requestAnimationFrame(() => {
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--app-bg').trim();
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta && bg) meta.setAttribute('content', bg);
-  });
 }
