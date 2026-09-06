@@ -91,8 +91,17 @@ export default function App() {
   const isWordCorrect = (w: PlacedWord, e: Record<string, string>) =>
     w.cells.every((c, i) => (e[cellKey(c.row, c.col)] ?? '') === w.answer[i]);
 
-  const wordValue = (w: PlacedWord): string =>
-    w.cells.map((c) => entries[cellKey(c.row, c.col)] ?? '').join('');
+  // Draft prefill: contiguous letters from the start only — a position in the
+  // draft must match its position in the word, so gaps are not skipped over.
+  const wordValue = (w: PlacedWord): string => {
+    const letters: string[] = [];
+    for (const c of w.cells) {
+      const v = entries[cellKey(c.row, c.col)];
+      if (!v) break;
+      letters.push(v);
+    }
+    return letters.join('');
+  };
 
   // Filled-word counters shown next to the clue list headings.
   const progress = useMemo(() => {
@@ -196,12 +205,14 @@ export default function App() {
     const letters = normalizeAnswer(draft);
     const nextEntries = { ...entries };
     const changed = new Set<string>();
+    // The draft covers the word from its first cell; cells past the typed
+    // prefix keep their letters so crossing words are not wiped.
     w.cells.forEach((c, i) => {
+      if (i >= letters.length) return;
       const k = cellKey(c.row, c.col);
-      const v = letters[i] ?? '';
+      const v = letters[i];
       if ((nextEntries[k] ?? '') !== v) changed.add(k);
-      if (v) nextEntries[k] = v;
-      else delete nextEntries[k];
+      nextEntries[k] = v;
     });
     setEntries(nextEntries);
     // Editing cells clears stale error marks and check highlights.
@@ -223,7 +234,40 @@ export default function App() {
     setDialog(null);
   };
 
-  const clearWord = () => setDraft('');
+  // Clear empties the input and wipes the whole word's letters at once —
+  // submit no longer erases cells past the typed prefix, so this is the
+  // only way to blank a word.
+  const clearWord = () => {
+    if (!puzzle || !dialog) return;
+    const w = byId(dialog.wordId);
+    if (!w) return;
+    const nextEntries = { ...entries };
+    const changed = new Set<string>();
+    w.cells.forEach((c) => {
+      const k = cellKey(c.row, c.col);
+      if (nextEntries[k]) {
+        changed.add(k);
+        delete nextEntries[k];
+      }
+    });
+    setDraft('');
+    if (changed.size > 0) {
+      setEntries(nextEntries);
+      setMarks((prev) => {
+        const next = { ...prev };
+        for (const k of changed) delete next[k];
+        return next;
+      });
+      setCheckedWordIds((prev) => {
+        const next = new Set(prev);
+        for (const id of prev) {
+          const word = byId(id);
+          if (!word || !isWordCorrect(word, nextEntries)) next.delete(id);
+        }
+        return next;
+      });
+    }
+  };
 
   const handleCheck = () => {
     if (!puzzle) return;

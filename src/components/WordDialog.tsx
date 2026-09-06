@@ -33,7 +33,14 @@ export default function WordDialog({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    const t = setTimeout(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      // Continue typing after the prefilled prefix, not at position 0.
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    }, 60);
     return () => clearTimeout(t);
   }, [word.id]);
 
