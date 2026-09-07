@@ -7,8 +7,9 @@ import Footer from './components/Footer';
 import Welcome from './components/Welcome';
 import ErrorDialog from './components/ErrorDialog';
 import { IconX } from './components/icons';
-import { PuzzleError, cellKey, normalizeAnswer, parsePuzzle, validatePuzzle } from './lib/puzzle';
-import { parseCsvWords, readFileText } from './lib/csv';
+import { PuzzleError, cellKey, normalizeAnswer, validatePuzzle } from './lib/puzzle';
+import { parseCsvWords, readFileText, type CsvWord } from './lib/csv';
+import { parseXlsxWords } from './lib/xlsx';
 import { generatePuzzle, type GridProfile } from './lib/generator';
 import { clearPersistedState, loadSavedState, persistState } from './lib/storage';
 import { applyTheme, loadTheme } from './themes';
@@ -126,9 +127,9 @@ export default function App() {
     setLoadWarning(null);
   };
 
-  // Grid shape preferences for the current device, read once per CSV load:
-  // phones get a compact, slightly vertical grid, tablets a wide layout
-  // with more cells across than down (targetRatio is height / width).
+  // Grid shape preferences for the current device, read once per word-list
+  // load: phones get a compact, slightly vertical grid, tablets a wide
+  // layout with more cells across than down (targetRatio is height / width).
   const gridProfile = (): GridProfile => {
     const shortSide = Math.min(window.innerWidth, window.innerHeight);
     return shortSide < 480
@@ -136,24 +137,31 @@ export default function App() {
       : { maxW: 20, maxH: 32, targetRatio: 0.8 };
   };
 
+  // CSV and XLSX lists take the same path: parse the two-column list,
+  // generate the grid, then persist the generated layout like a normal
+  // puzzle so progress survives a restart via validatePuzzle.
+  const loadWordList = async (words: CsvWord[] | Promise<CsvWord[]>, title: string) => {
+    const { puzzle, isolated } = generatePuzzle(await words, gridProfile(), { title });
+    applyLoaded(validatePuzzle(puzzle), JSON.stringify(puzzle));
+    if (isolated.length > 0) {
+      setLoadWarning([
+        `Эти слова удалось разместить без пересечений с другими: ${isolated.join(', ')}.`,
+      ]);
+    }
+  };
+
   const handleFile = async (file: File) => {
     try {
-      const text = await readFileText(file);
-      if (/\.csv$/i.test(file.name)) {
-        const words = parseCsvWords(text);
-        const { puzzle, isolated } = generatePuzzle(words, gridProfile(), {
-          title: file.name.replace(/\.[^.]+$/, ''),
-        });
-        // The generated layout is persisted as normal JSON, so progress
-        // survives a restart and is restored through validatePuzzle.
-        applyLoaded(validatePuzzle(puzzle), JSON.stringify(puzzle));
-        if (isolated.length > 0) {
-          setLoadWarning([
-            `Эти слова удалось разместить без пересечений с другими: ${isolated.join(', ')}.`,
-          ]);
-        }
+      const name = file.name.toLowerCase();
+      const title = file.name.replace(/\.[^.]+$/, '');
+      if (name.endsWith('.csv')) {
+        loadWordList(parseCsvWords(await readFileText(file)), title);
+      } else if (name.endsWith('.xlsx')) {
+        loadWordList(parseXlsxWords(await file.arrayBuffer()), title);
       } else {
-        applyLoaded(parsePuzzle(text), text);
+        throw new PuzzleError([
+          'Поддерживаются файлы CSV и XLSX: в первом столбце слово, во втором — вопрос.',
+        ]);
       }
     } catch (e) {
       setLoadError(e instanceof PuzzleError ? e.issues : [`Прочитать файл не удалось: ${String(e)}`]);
@@ -369,6 +377,7 @@ export default function App() {
         <WordDialog
           word={dialogWord}
           altWord={dialogAlt ?? null}
+          entries={entries}
           draft={draft}
           onDraftChange={setDraft}
           onSubmit={submitWord}
@@ -399,7 +408,7 @@ export default function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,.csv,application/json,text/csv"
+        accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         className="hidden-input"
         onChange={(e) => {
           const f = e.target.files?.[0];

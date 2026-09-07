@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import type { PlacedWord } from '../types';
-import { displayClue } from '../lib/puzzle';
+import { cellKey, displayClue } from '../lib/puzzle';
 
 interface Props {
   word: PlacedWord;
   /** The crossing word in the same cell (for switching direction). */
   altWord: PlacedWord | null;
+  /** Entered letters by cell key — crossing letters shown in the slots. */
+  entries: Record<string, string>;
   draft: string;
   onDraftChange: (value: string) => void;
   onSubmit: () => void;
@@ -24,6 +26,7 @@ function clean(value: string): string {
 export default function WordDialog({
   word,
   altWord,
+  entries,
   draft,
   onDraftChange,
   onSubmit,
@@ -54,7 +57,16 @@ export default function WordDialog({
   }, [onClose]);
 
   const letters = clean(draft);
-  const slots = Array.from({ length: word.answer.length }, (_, i) => letters[i] ?? '');
+  // Each slot shows the typed letter, falling back to the letter already in
+  // the cell from a crossing word. When both exist they always agree or the
+  // input would overwrite the crossing on submit — so flag it right away.
+  const slots = Array.from({ length: word.answer.length }, (_, i) => {
+    const cell = word.cells[i];
+    const inCell = (cell && entries[cellKey(cell.row, cell.col)]) || '';
+    const typed = letters[i] ?? '';
+    const state = typed && inCell ? (typed === inCell ? ' solved' : ' wrong') : '';
+    return { ch: typed || inCell, state };
+  });
 
   return (
     <div
@@ -87,9 +99,9 @@ export default function WordDialog({
         <p className="dialog-clue">{displayClue(word.clue)}</p>
 
         <div className="slots" aria-hidden="true">
-          {slots.map((ch, i) => (
-            <span key={i} className={`slot${ch ? ' filled' : ''}`}>
-              {ch || '\u00A0'}
+          {slots.map((s, i) => (
+            <span key={i} className={`slot${s.ch ? ' filled' : ''}${s.state}`}>
+              {s.ch || '\u00A0'}
             </span>
           ))}
         </div>

@@ -5,8 +5,10 @@ Guidance for AI coding agents working in this repository.
 ## What this project is
 
 A crossword app for tablets in portrait orientation, installable as a PWA.
-Crosswords come from JSON files opened by the user (see the contract in
-`README.md`, validated in `src/lib/puzzle.ts`). Built with Vite + React +
+Word lists come from CSV or XLSX files opened by the user (rules in
+`README.md`; parsed in `src/lib/csv.ts` and `src/lib/xlsx.ts`), and the grid
+is generated at load time. The internal representation is a JSON contract
+(validated in `src/lib/puzzle.ts`). Built with Vite + React +
 TypeScript. No runtime dependencies besides `react` / `react-dom`.
 
 ## Commands
@@ -20,14 +22,14 @@ npm run samples    # regenerate sample crosswords (do not hand-edit them)
 npm run icons      # regenerate PWA icons
 npm run test       # unit tests (Vitest) for the lib/ modules
 npm run test:watch # unit tests in watch mode
-npm run verify     # node checks for the CSV/generator pipeline (uses esbuild
-                   # from Vite's dependencies; no extra installs)
+npm run verify     # node checks for the CSV/XLSX/generator pipeline (uses
+                   # esbuild from Vite's dependencies; no extra installs)
 ```
 
 Unit tests live next to the sources as `src/lib/*.test.ts` (puzzle
-validation, CSV parsing, grid generation, storage); there is no React
-component testing. The minimum verification bar is a clean
-`npm run build`, `npm run test`, `npm run verify` (covers CSV parsing and
+validation, CSV parsing, XLSX parsing, grid generation, storage); there is no
+React component testing. The minimum verification bar is a clean
+`npm run build`, `npm run test`, `npm run verify` (covers CSV/XLSX parsing and
 grid generation end to end, including contract validation of every generated
 layout), plus manually loading a sample in `npm run preview` (grid renders,
 word dialog opens, Check marks wrong letters). CI runs test + verify + build
@@ -42,20 +44,31 @@ bundle works from a project subpath — keep it relative. The PWA needs HTTPS
 
 ## Architecture
 
-Data flow: a JSON file (or a bundled sample) → `parsePuzzle` / `validatePuzzle`
-in `src/lib/puzzle.ts` → a `ValidatedPuzzle` (`words` + a `cells` map keyed by
-`"row:col"`, 0-based) → `CrosswordGrid`. Entered letters live in
-`App.tsx` state as `entries: Record<"row:col", letter>`.
+Data flow: a word list (CSV/XLSX file, or a bundled sample) → `parseCsvWords`
+/ `parseXlsxWords` → `generatePuzzle` (for file loads) or the sample JSON →
+`validatePuzzle` in `src/lib/puzzle.ts` → a `ValidatedPuzzle` (`words` + a
+`cells` map keyed by `"row:col"`, 0-based) → `CrosswordGrid`. Entered letters
+live in `App.tsx` state as `entries: Record<"row:col", letter>`.
 
-CSV word lists take a different front path: `src/lib/csv.ts` parses the file
-(words + clues, per-line errors) → `src/lib/generator.ts` places the words and
-emits a contract JSON → that JSON goes through the normal `validatePuzzle`
-path and is persisted as `raw`, so restore/check/persistence are unchanged.
+Word-list loads take a different front path than the bundled samples:
+`src/lib/csv.ts` / `src/lib/xlsx.ts` parse the file (words + clues, per-row
+errors) → `src/lib/generator.ts` places the words and emits a contract JSON →
+that JSON goes through the normal `validatePuzzle` path and is persisted as
+`raw`, so restore/check/persistence are unchanged.
 
 - `src/lib/puzzle.ts` — the single source of truth for contract validation and automatic numbering.
 - `src/lib/csv.ts` — CSV parsing: delimiter sniffing (`;` `,` tab), quoted
   fields, UTF-8 with a Windows-1251 fallback, header-row detection, errors by
-  line number.
+  line number. Its `parseWordRows` row loop is shared with the XLSX path, so
+  both formats accept the same lists and report the same errors.
+- `src/lib/xlsx.ts` — XLSX word lists: reads the FIRST worksheet of the book
+  (workbook → rels → sheet + shared strings), converts cells to rows of
+  strings and hands them to `parseWordRows`. Only the first sheet is read.
+- `src/lib/zip.ts` — hand-rolled ZIP reader (central-directory walk; stored
+  and deflate entries via `DecompressionStream('deflate-raw')`). Rejects
+  Zip64/encrypted archives with clear Russian errors.
+- `src/lib/xml.ts` — hand-rolled minimal XML parser for the xlsx parts;
+  strips namespace prefixes from element names, keeps them on attributes.
 - `src/lib/generator.ts` — runtime grid generation: backtracking search
   ported from `scripts/build-samples.mjs` with an incremental placement-validity
   check (cell keys are `cellKey()` "r:c" everywhere — do not mix in "r,c").
@@ -110,21 +123,21 @@ path and is persisted as `raw`, so restore/check/persistence are unchanged.
 - `ErrorDialog` doubles as the post-load notice dialog: pass `title`
   (e.g. «Обратите внимание» for the isolated-words warning) and keep the
   Russian strings.
-- The file input accepts `.json` and `.csv`; `handleFile` branches on the
-  file extension. Non-CSV files keep the raw text as `raw`; CSV loads store
-  the generated JSON instead.
+- The file input accepts `.csv` and `.xlsx`; `handleFile` branches on the
+  file extension and shows a «Поддерживаются файлы CSV и XLSX…» error for
+  anything else. Both CSV and XLSX loads store the generated JSON as `raw`.
 
 ## Persistence
 
 - `localStorage["crossword.state.v1"]` = `{ raw, entries }` — the raw JSON text
   of the loaded file plus entered letters; re-validated on restore.
-- `localStorage["crossword.theme"]` — the theme id; falls back to
-  `prefers-color-scheme: dark`.
+- `localStorage["crossword.theme"]` — the theme id; falls back to `DEFAULT_THEME`
+  (the paper theme) when nothing is stored.
 
 ## Samples
 
 `scripts/build-samples.mjs` generates `english.json` (20 words, 15×15) and
-`cosmos.json` (10 Russian words, 11×12) into both `public/samples/` and
-`src/samples/` using seeded backtracking. Regenerate with `npm run samples`
-instead of editing the JSON by hand — the generator guarantees the layout rules
-above.
+`cosmos.json` (10 Russian words, 11×12) into `src/samples/` (bundled as the
+welcome-screen examples) using seeded backtracking. Regenerate with
+`npm run samples` instead of editing the JSON by hand — the generator
+guarantees the layout rules above.

@@ -1,15 +1,19 @@
 /**
- * CSV word-list support: the user opens a plain two-column CSV where the
+ * Word-list support: the user opens a plain two-column table where the
  * first column is the answer word and the second column is the clue; the
  * grid is generated afterwards by `src/lib/generator.ts`.
  *
- * The parser is hand-rolled (the project has no runtime dependencies) and
+ * CSV parsing is hand-rolled (the project has no runtime dependencies) and
  * follows the rules documented in README.md:
  *  - delimiters `;`, `,` or tab, auto-detected per file;
  *  - quoted fields with `""` escapes, newlines allowed inside quotes;
  *  - UTF-8 (with or without BOM) or Windows-1251 input (the Excel default
  *    for Cyrillic locales);
  *  - an optional header row («Слово/Вопрос», «Word/Question», …) is skipped.
+ *
+ * The row loop (`parseWordRows`) is shared with the XLSX path
+ * (`src/lib/xlsx.ts`), so both formats accept the same lists, headers and
+ * limits and report the same per-row errors.
  */
 
 import { normalizeAnswer, PuzzleError } from './puzzle';
@@ -18,8 +22,15 @@ import { normalizeAnswer, PuzzleError } from './puzzle';
 export interface CsvWord {
   answer: string;
   clue: string;
-  /** 1-based line number in the CSV file, for error messages. */
+  /** 1-based row number in the source file, for error messages. */
   line: number;
+}
+
+/** One row of a word list: CSV fields or spreadsheet cells. */
+export interface WordRow {
+  /** 1-based row number in the source file, for error messages. */
+  line: number;
+  cells: string[];
 }
 
 /** Header names recognized in the first column. */
@@ -69,15 +80,9 @@ export async function readFileText(file: File): Promise<string> {
   }
 }
 
-interface CsvRow {
-  /** 1-based line number where the row starts. */
-  line: number;
-  cells: string[];
-}
-
 /** RFC-4180-style split with quoted fields and CR/LF/CRLF row ends. */
-function splitCsv(text: string, delimiter: string): CsvRow[] {
-  const rows: CsvRow[] = [];
+function splitCsv(text: string, delimiter: string): WordRow[] {
+  const rows: WordRow[] = [];
   let cells: string[] = [];
   let cell = '';
   let inQuotes = false;
@@ -162,17 +167,13 @@ function isHeaderRow(wordRaw: string, clueRaw: string): boolean {
   return HEADER_FIRST.has(word) && HEADER_SECOND.has(clue);
 }
 
-/** Parse a CSV word list; throws PuzzleError with per-line issues. */
-export function parseCsvWords(text: string): CsvWord[] {
-  const clean = text.replace(/^\uFEFF/, '');
-  if (!clean.trim()) {
-    throw new PuzzleError([
-      'Файл пустой — нужна таблица: первый столбец слово, второй вопрос.',
-    ]);
-  }
-  const delimiter = sniffDelimiter(clean);
-  const rows = splitCsv(clean, delimiter);
-
+/**
+ * Shared row loop for CSV and XLSX word lists: the first column is the word,
+ * everything after it is the clue (`clueGlue` joins extra columns). An
+ * optional header row is skipped; errors cite `row.line`. Throws PuzzleError
+ * with per-row issues when anything is wrong.
+ */
+export function parseWordRows(rows: WordRow[], clueGlue: string): CsvWord[] {
   const issues: string[] = [];
   const words: CsvWord[] = [];
   const seen = new Map<string, number>();
@@ -180,11 +181,9 @@ export function parseCsvWords(text: string): CsvWord[] {
 
   rows.forEach((row, i) => {
     const wordRaw = (row.cells[0] ?? '').trim();
-    // Everything after the first column counts as the clue, so a question
-    // with a bare (unquoted) delimiter still survives in hand-written files.
     const clue = row.cells
       .slice(1)
-      .join(delimiter)
+      .join(clueGlue)
       .trim();
     if (!wordRaw && !clue) return; // blank row
     dataRows++;
@@ -230,4 +229,16 @@ export function parseCsvWords(text: string): CsvWord[] {
     throw new PuzzleError(shown);
   }
   return words;
+}
+
+/** Parse a CSV word list; throws PuzzleError with per-line issues. */
+export function parseCsvWords(text: string): CsvWord[] {
+  const clean = text.replace(/^\uFEFF/, '');
+  if (!clean.trim()) {
+    throw new PuzzleError([
+      'Файл пустой — нужна таблица: первый столбец слово, второй вопрос.',
+    ]);
+  }
+  const delimiter = sniffDelimiter(clean);
+  return parseWordRows(splitCsv(clean, delimiter), delimiter);
 }

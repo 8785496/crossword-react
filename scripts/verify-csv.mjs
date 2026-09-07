@@ -1,10 +1,12 @@
 /**
- * Verification harness for the CSV -> generate -> validate pipeline.
+ * Verification harness for the CSV/XLSX -> generate -> validate pipeline.
  *
  * Bundles src/lib with esbuild (a Vite dependency) into a temp folder and
  * runs assertions in Node: CSV parsing (delimiters, header, errors),
- * encodings (UTF-8 / Windows-1251), grid generation (profiles, determinism,
- * isolated words, limits) and contract validation of every generated layout.
+ * encodings (UTF-8 / Windows-1251), XLSX parsing (a real zip is built in
+ * memory and read back through the deflate path), grid generation
+ * (profiles, determinism, isolated words, limits) and contract validation
+ * of every generated layout.
  *
  * Usage: npm run verify
  */
@@ -23,6 +25,7 @@ await build({
     resolve(root, 'src/lib/csv.ts'),
     resolve(root, 'src/lib/generator.ts'),
     resolve(root, 'src/lib/puzzle.ts'),
+    resolve(root, 'src/lib/xlsx.ts'),
   ],
   bundle: true,
   format: 'esm',
@@ -33,6 +36,7 @@ await build({
 const { parseCsvWords, readFileText } = await import(pathToFileURL(join(outDir, 'csv.js')));
 const { generatePuzzle } = await import(pathToFileURL(join(outDir, 'generator.js')));
 const { validatePuzzle, cellKey } = await import(pathToFileURL(join(outDir, 'puzzle.js')));
+const { parseXlsxWords } = await import(pathToFileURL(join(outDir, 'xlsx.js')));
 
 let passed = 0;
 let failed = 0;
@@ -59,6 +63,14 @@ const checkAsync = async (name, fn) => {
 const issuesOf = (fn) => {
   try {
     fn();
+  } catch (e) {
+    return e.issues ?? [`no issues prop: ${e.message}`];
+  }
+  return null; // did not throw
+};
+const issuesOfAsync = async (promise) => {
+  try {
+    await promise;
   } catch (e) {
     return e.issues ?? [`no issues prop: ${e.message}`];
   }
@@ -291,6 +303,126 @@ check('phone grid is more vertical than tablet grid', () => {
     `    phone ${phone.grid.width}×${phone.grid.height} (${rp.toFixed(2)}), tablet ${tablet.grid.width}×${tablet.grid.height} (${rt.toFixed(2)})`,
   );
   assert.ok(rp > rt, `phone ${rp} !> tablet ${rt}`);
+});
+
+console.log('\n== XLSX ==');
+// Test-only ZIP writer (the same bytes flow back through src/lib/zip.ts).
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+const crc32 = (bytes) => {
+  let c = 0xffffffff;
+  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+};
+async function deflateRaw(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function buildZip(files) {
+  const encoder = new TextEncoder();
+  const body = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, content] of Object.entries(files)) {
+    const nameBytes = encoder.encode(name);
+    const raw = encoder.encode(content);
+    const packed = await deflateRaw(raw);
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0x0800, true);
+    lv.setUint16(8, 8, true);
+    lv.setUint32(14, crc32(raw), true);
+    lv.setUint32(18, packed.length, true);
+    lv.setUint32(22, raw.length, true);
+    lv.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+    body.push(local, packed);
+    const cd = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(cd.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, 8, true);
+    cv.setUint32(16, crc32(raw), true);
+    cv.setUint32(20, packed.length, true);
+    cv.setUint32(24, raw.length, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint32(42, offset, true);
+    cd.set(nameBytes, 46);
+    central.push(cd);
+    offset += local.length + packed.length;
+  }
+  const cdStart = offset;
+  const cdSize = central.reduce((sum, c) => sum + c.length, 0);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, central.length, true);
+  ev.setUint16(10, central.length, true);
+  ev.setUint32(12, cdSize, true);
+  ev.setUint32(16, cdStart, true);
+  const out = new Uint8Array(cdStart + cdSize + 22);
+  let pos = 0;
+  for (const chunk of [...body, ...central, eocd]) {
+    out.set(chunk, pos);
+    pos += chunk.length;
+  }
+  return out.buffer;
+}
+
+const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+const cosmosXlsx = await buildZip({
+  'xl/workbook.xml':
+    `${XML_DECL}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ` +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    '<sheets><sheet name="Слова" sheetId="1" r:id="rId1"/></sheets></workbook>',
+  'xl/_rels/workbook.xml.rels':
+    `${XML_DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+    '<Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>',
+  'xl/sharedStrings.xml':
+    `${XML_DECL}<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    cosmosWords
+      .flatMap(([w, q], i) => [w, q])
+      .map((s) => `<si><t>${s}</t></si>`)
+      .join('') +
+    '</sst>',
+  'xl/worksheets/sheet1.xml': [
+    `${XML_DECL}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>`,
+    '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>',
+    ...cosmosWords.map(
+      ([w, q], i) =>
+        `<row r="${i + 2}"><c r="A${i + 2}" t="s"><v>${i * 2 + 2}</v></c>` +
+        `<c r="B${i + 2}" t="s"><v>${i * 2 + 3}</v></c></row>`,
+    ),
+    '</sheetData></worksheet>',
+  ].join(''),
+});
+
+await checkAsync('xlsx word list parses through the real zip path', async () => {
+  const words = await parseXlsxWords(cosmosXlsx);
+  assert.equal(words.length, 10);
+  assert.equal(words[0].answer, 'КОСМОНАВТ');
+});
+await checkAsync('xlsx list -> generated grid -> valid contract', async () => {
+  const words = await parseXlsxWords(cosmosXlsx);
+  const { puzzle, isolated } = generatePuzzle(words, TABLET);
+  const vp = validatePuzzle(puzzle);
+  assert.equal(vp.words.length, 10);
+  assert.deepEqual(isolated, []);
+});
+await checkAsync('broken xlsx -> clear error', async () => {
+  const issues = await issuesOfAsync(parseXlsxWords(Buffer.from('definitely not a zip')));
+  assert.ok(issues[0].includes('не книга Excel'), JSON.stringify(issues));
 });
 
 console.log('\n== Sample grids ==');

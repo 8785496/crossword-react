@@ -53,7 +53,7 @@ function encodePng(size, rgba) {
 }
 
 // ---------- Drawing ----------
-const BG = [79, 70, 229]; // indigo
+const BG = [180, 83, 9]; // paper-theme accent (#b45309)
 const WHITE = [255, 255, 255];
 const YELLOW = [251, 191, 36];
 

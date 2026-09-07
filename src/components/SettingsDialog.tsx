@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { IconX } from './icons';
 import { THEMES } from '../themes';
+import { clearPersistedState } from '../lib/storage';
 
 interface Props {
   theme: string;
@@ -16,6 +17,26 @@ export default function SettingsDialog({ theme, onThemeChange, onClose }: Props)
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // Drop every cached asset and the service worker itself, reset the solving
+  // progress and reload: the app then starts from the welcome screen. The
+  // theme is a preference, not progress, so it survives the reset.
+  const clearCache = async () => {
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      clearPersistedState();
+    } catch {
+      /* best effort: reload anyway */
+    }
+    window.location.reload();
+  };
 
   return (
     <div
@@ -54,6 +75,15 @@ export default function SettingsDialog({ theme, onThemeChange, onClose }: Props)
             </button>
           ))}
         </div>
+
+        <h3 className="settings-subtitle">Приложение</h3>
+        <button type="button" className="btn ghost settings-cache-btn" onClick={clearCache}>
+          Очистить кеш
+        </button>
+        <p className="settings-hint">
+          Сбрасывает кеш приложения и прогресс решения, после перезагрузки открывается начальный
+          экран. Тема оформления сохраняется.
+        </p>
 
         <div className="dialog-actions">
           <button type="button" className="btn primary" onClick={onClose}>

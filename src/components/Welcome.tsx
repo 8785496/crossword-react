@@ -1,4 +1,4 @@
-import { IconPuzzle } from './icons';
+import { IconFolder, IconPuzzle } from './icons';
 
 interface Props {
   onOpen: () => void;
@@ -14,12 +14,13 @@ export default function Welcome({ onOpen, onSampleCosmos, onSampleEnglish }: Pro
       </div>
       <h2>Кроссворд</h2>
       <p>
-        Откройте файл JSON с готовым кроссвордом или CSV со списком слов:
+        Откройте файл CSV или XLSX со списком слов:
         в первом столбце — слово, во втором — вопрос. Сетка построится
         автоматически и подстроится под размер экрана.
       </p>
       <button type="button" className="btn primary big" onClick={onOpen}>
-        📂 Открыть файл
+        <IconFolder size={20} />
+        Открыть файл
       </button>
       <div className="welcome-samples">
         <span>Или попробуйте готовый пример:</span>

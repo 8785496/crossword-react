@@ -16,6 +16,9 @@ export const THEMES: Theme[] = [
 
 const THEME_KEY = 'crossword.theme';
 
+/** Used when the user has not picked a theme yet. */
+export const DEFAULT_THEME = 'paper';
+
 export function loadTheme(): string {
   try {
     const id = localStorage.getItem(THEME_KEY);
@@ -23,10 +26,7 @@ export function loadTheme(): string {
   } catch {
     /* localStorage is unavailable */
   }
-  if (typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  return 'light';
+  return DEFAULT_THEME;
 }
 
 export function applyTheme(id: string): void {

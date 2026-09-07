@@ -3,7 +3,7 @@
  *
  * Places the words with a backtracking search (only real letter crossings,
  * no touching of parallel words) and writes JSON following the app contract
- * to src/samples/ and public/samples/.
+ * to src/samples/ (bundled as the welcome-screen examples).
  *
  * Usage: npm run samples
  */
@@ -295,10 +295,9 @@ function renderAscii(json) {
 
 function writeSample(filename, json) {
   const content = JSON.stringify(json, null, 2) + '\n';
-  for (const dir of ['src/samples', 'public/samples']) {
-    mkdirSync(resolve(root, dir), { recursive: true });
-    writeFileSync(resolve(root, dir, filename), content, 'utf8');
-  }
+  const dir = resolve(root, 'src/samples');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(resolve(dir, filename), content, 'utf8');
 }
 
 // ---------- Samples ----------
