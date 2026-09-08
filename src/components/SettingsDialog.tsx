@@ -84,12 +84,6 @@ export default function SettingsDialog({ theme, onThemeChange, onClose }: Props)
           Сбрасывает кеш приложения и прогресс решения, после перезагрузки открывается начальный
           экран. Тема оформления сохраняется.
         </p>
-
-        <div className="dialog-actions">
-          <button type="button" className="btn primary" onClick={onClose}>
-            Готово
-          </button>
-        </div>
       </div>
     </div>
   );
