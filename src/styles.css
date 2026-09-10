@@ -560,13 +560,18 @@ body {
 }
 
 .word-input {
+  display: block;
   width: 100%;
   padding: 12px;
   font-family: inherit;
   font-size: 1.25rem;
+  line-height: 1.2;
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  white-space: pre;
+  overflow: hidden;
+  resize: none;
   color: var(--text);
   background: var(--surface);
   border: 1.5px solid var(--cell-border);
