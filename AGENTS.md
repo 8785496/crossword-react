@@ -74,8 +74,8 @@ that JSON goes through the normal `validatePuzzle` path and is persisted as
   check (cell keys are `cellKey()` "r:c" everywhere — do not mix in "r,c").
   The RNG is seeded from the word list (same file → same grid). Layout scoring
   targets a device-specific height/width ratio from `GridProfile`
-  (`src/App.tsx` `gridProfile()`: phone short side < 480 px → maxW 16,
-  target ratio 1.1; else maxW 24, target ratio 0.8 — a ratio below 1 means
+  (`src/App.tsx` `gridProfile()`: phone short side < 480 px → maxW 14,
+  target ratio 1.1; else maxW 20, target ratio 0.8 — a ratio below 1 means
   the grid is wider than tall). If no
   fully crossing layout exists, a relaxed pass places leftover words
   standalone (one-cell moat); `generatePuzzle` returns them as `isolated` and
