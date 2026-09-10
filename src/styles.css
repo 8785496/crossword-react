@@ -596,9 +596,29 @@ body {
 
 .dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
   margin-top: 16px;
+}
+
+/* Buttons keep their label width; on narrow screens the row wraps instead of
+   clipping the text. */
+.dialog-actions .btn {
+  flex: 0 1 auto;
+  min-width: fit-content;
+  padding: 0 12px;
+}
+
+@media (max-width: 380px) {
+  .dialog {
+    padding: 14px;
+  }
+
+  .dialog-actions .btn {
+    font-size: 0.9rem;
+    padding: 0 10px;
+  }
 }
 
 .btn {

@@ -124,7 +124,7 @@ export default function WordDialog({
           spellCheck={false}
           enterKeyHint="done"
           maxLength={word.answer.length}
-          placeholder="Введите слово целиком"
+          placeholder="Слово целиком"
           onChange={(e) => onDraftChange(clean(e.target.value))}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

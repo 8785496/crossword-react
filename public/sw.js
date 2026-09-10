@@ -3,7 +3,7 @@
  * fallback when offline; other requests are served from the cache when
  * available, otherwise fetched and added to the cache.
  */
-const CACHE = 'crossword-v10';
+const CACHE = 'crossword-v11';
 const SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
