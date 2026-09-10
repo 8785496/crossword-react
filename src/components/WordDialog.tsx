@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PlacedWord } from '../types';
 import { cellKey, displayClue } from '../lib/puzzle';
 
@@ -35,6 +35,10 @@ export default function WordDialog({
   onSwitchWord,
 }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // The input starts readOnly so Chrome on Android treats it as
+  // non-autofillable and hides the key/card/address bar above the keyboard;
+  // the flag only keeps re-renders from restoring the attribute.
+  const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -47,6 +51,16 @@ export default function WordDialog({
     }, 60);
     return () => clearTimeout(t);
   }, [word.id]);
+
+  // A readonly field gets no keyboard when focused, so become editable inside
+  // the focus handler and refocus to summon it.
+  const unlockInput = (el: HTMLTextAreaElement) => {
+    if (el.readOnly) {
+      el.readOnly = false;
+      setUnlocked(true);
+      el.focus();
+    }
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -111,9 +125,9 @@ export default function WordDialog({
           ))}
         </div>
 
-        {/* A bare textarea with no autocomplete attribute is what keeps Chrome
-            on Android from raising the autofill bar above the keyboard; the
-            same recipe works on chat.z.ai. clean() strips any newlines. */}
+        {/* readOnly until first focus is what keeps Chrome on Android from
+            raising the autofill bar above the keyboard; clean() strips any
+            newlines. */}
         <textarea
           ref={inputRef}
           className="word-input"
@@ -122,6 +136,8 @@ export default function WordDialog({
           value={draft}
           autoCapitalize="characters"
           spellCheck={false}
+          readOnly={!unlocked}
+          onFocus={(e) => unlockInput(e.currentTarget)}
           enterKeyHint="done"
           maxLength={word.answer.length}
           placeholder="Слово целиком"
