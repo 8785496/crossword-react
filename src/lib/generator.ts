@@ -42,7 +42,7 @@ export interface GeneratedPuzzle {
 const MAX_GRID_W = 40;
 const MAX_GRID_H = 60;
 /** Safety net: generation must never freeze the UI for long. */
-const TIME_BUDGET_MS = 3000;
+const TIME_BUDGET_MS = 6000;
 
 interface Placement {
   answer: string;
@@ -365,7 +365,7 @@ export function generatePuzzle(
   const deadline = Date.now() + TIME_BUDGET_MS;
   // Attempt counts shrink for long lists to stay quick; the deadline above
   // is only a safety net for pathological inputs.
-  const crossingAttempts = Math.max(60, Math.min(400, Math.round(6000 / answers.length)));
+  const crossingAttempts = Math.max(100, Math.min(2000, Math.round(30000 / answers.length)));
   const relaxedAttempts = Math.max(20, Math.round(crossingAttempts / 3));
 
   // Holder object (not a bare `let`) so assignments inside the closures

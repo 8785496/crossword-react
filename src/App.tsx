@@ -133,8 +133,8 @@ export default function App() {
   const gridProfile = (): GridProfile => {
     const shortSide = Math.min(window.innerWidth, window.innerHeight);
     return shortSide < 480
-      ? { maxW: 14, maxH: 26, targetRatio: 1.1 }
-      : { maxW: 20, maxH: 32, targetRatio: 0.8 };
+      ? { maxW: 16, maxH: 26, targetRatio: 1.1 }
+      : { maxW: 24, maxH: 32, targetRatio: 0.8 };
   };
 
   // CSV and XLSX lists take the same path: parse the two-column list,
