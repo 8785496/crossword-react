@@ -508,6 +508,18 @@ body {
   line-height: 1.45;
 }
 
+/* Long-press to copy: only the clue text is selectable in the word dialog. */
+.word-dialog {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.word-dialog .dialog-clue,
+.word-input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 .slots {
   display: flex;
   flex-wrap: wrap;
