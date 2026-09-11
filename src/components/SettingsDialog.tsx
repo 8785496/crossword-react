@@ -16,9 +16,6 @@ interface Props {
   /** Есть ли загруженный кроссворд, который можно пересобрать. */
   canRegenerate: boolean;
   onRegenerate: () => void;
-  /** Есть ли загруженный кроссворд, чьи буквы можно стереть. */
-  canRestart: boolean;
-  onRestart: () => void;
   onClose: () => void;
 }
 
@@ -37,20 +34,9 @@ export default function SettingsDialog({
   onGeneratorChange,
   canRegenerate,
   onRegenerate,
-  canRestart,
-  onRestart,
   onClose,
 }: Props) {
   const [tab, setTab] = useState<Tab>('basic');
-  // «Начать заново» needs a second click: the first arms it, so a stray tap
-  // cannot wipe the whole solved grid.
-  const [restartArmed, setRestartArmed] = useState(false);
-
-  useEffect(() => {
-    if (!restartArmed) return;
-    const t = setTimeout(() => setRestartArmed(false), 4000);
-    return () => clearTimeout(t);
-  }, [restartArmed]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -182,27 +168,11 @@ export default function SettingsDialog({
             </div>
 
             <h3 className="settings-subtitle">Приложение</h3>
-            <button
-              type="button"
-              className="btn ghost settings-wide-btn"
-              disabled={!canRestart}
-              onClick={() => {
-                if (!restartArmed) {
-                  setRestartArmed(true);
-                  return;
-                }
-                setRestartArmed(false);
-                onRestart();
-              }}
-            >
-              {restartArmed ? 'Точно стереть все буквы?' : 'Начать заново'}
-            </button>
             <button type="button" className="btn ghost settings-wide-btn" onClick={clearCache}>
               Очистить кеш
             </button>
             <p className="settings-hint">
-              «Начать заново» стирает введённые буквы в текущем кроссворде. «Очистить кеш»
-              сбрасывает кеш приложения, историю кроссвордов и прогресс решения, после
+              Сбрасывает кеш приложения, историю кроссвордов и прогресс решения, после
               перезагрузки открывается начальный экран. Тема оформления сохраняется.
             </p>
           </>

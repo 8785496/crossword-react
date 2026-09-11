@@ -1,11 +1,15 @@
 import { useEffect, useMemo } from 'react';
-import { IconTrash, IconX } from './icons';
+import { IconRotateCcw, IconTrash, IconX } from './icons';
 import { cellKey, validatePuzzle } from '../lib/puzzle';
 import type { HistoryEntry } from '../lib/storage';
 
 interface Props {
   items: HistoryEntry[];
+  /** raw открытого сейчас кроссворда — его запись помечается в списке. */
+  currentRaw: string | null;
   onOpen: (entry: HistoryEntry) => void;
+  /** Открыть кроссворд заново: без сохранённых букв. */
+  onRestart: (entry: HistoryEntry) => void;
   onDelete: (entry: HistoryEntry) => void;
   onClose: () => void;
 }
@@ -20,7 +24,14 @@ function formatDate(ts: number): string {
   return `${d.toLocaleDateString('ru-RU')}, ${time}`;
 }
 
-export default function HistoryDialog({ items, onOpen, onDelete, onClose }: Props) {
+export default function HistoryDialog({
+  items,
+  currentRaw,
+  onOpen,
+  onRestart,
+  onDelete,
+  onClose,
+}: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -34,6 +45,8 @@ export default function HistoryDialog({ items, onOpen, onDelete, onClose }: Prop
   const views = useMemo(
     () =>
       items.map((entry) => {
+        const current = entry.raw === currentRaw;
+        const suffix = current ? ' · сейчас открыт' : ` · ${formatDate(entry.savedAt)}`;
         try {
           const vp = validatePuzzle(JSON.parse(entry.raw));
           let solved = 0;
@@ -48,14 +61,14 @@ export default function HistoryDialog({ items, onOpen, onDelete, onClose }: Prop
           }
           return {
             entry,
-            ok: true,
-            label: `Решено ${solved} из ${vp.words.length} · ${formatDate(entry.savedAt)}`,
+            current,
+            label: `Решено ${solved} из ${vp.words.length}${suffix}`,
           };
         } catch {
-          return { entry, ok: false, label: 'Запись повреждена' };
+          return { entry, current, label: `Запись повреждена${suffix}` };
         }
       }),
-    [items],
+    [items, currentRaw],
   );
 
   return (
@@ -78,9 +91,13 @@ export default function HistoryDialog({ items, onOpen, onDelete, onClose }: Prop
           </p>
         ) : (
           <ul className="history-list">
-            {views.map(({ entry, label }) => (
+            {views.map(({ entry, current, label }) => (
               <li key={entry.raw} className="history-item">
-                <button type="button" className="history-open" onClick={() => onOpen(entry)}>
+                <button
+                  type="button"
+                  className={`history-open${current ? ' current' : ''}`}
+                  onClick={() => onOpen(entry)}
+                >
                   <span className="history-title">
                     {entry.title.trim() !== '' ? entry.title : 'Без названия'}
                   </span>
@@ -88,9 +105,19 @@ export default function HistoryDialog({ items, onOpen, onDelete, onClose }: Prop
                 </button>
                 <button
                   type="button"
-                  className="icon-btn history-delete"
+                  className="icon-btn history-action"
+                  onClick={() => onRestart(entry)}
+                  aria-label="Начать заново"
+                  title="Начать заново"
+                >
+                  <IconRotateCcw size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn history-action"
                   onClick={() => onDelete(entry)}
                   aria-label="Удалить из истории"
+                  title="Удалить из истории"
                 >
                   <IconTrash size={16} />
                 </button>
@@ -98,11 +125,6 @@ export default function HistoryDialog({ items, onOpen, onDelete, onClose }: Prop
             ))}
           </ul>
         )}
-        <div className="dialog-actions">
-          <button type="button" className="btn primary" onClick={onClose}>
-            Закрыть
-          </button>
-        </div>
       </div>
     </div>
   );

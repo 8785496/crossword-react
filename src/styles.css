@@ -753,6 +753,11 @@ body {
   background: var(--word-bg);
 }
 
+/* The record of the crossword that is open right now. */
+.history-open.current .history-title {
+  color: var(--accent);
+}
+
 .history-title {
   max-width: 100%;
   overflow: hidden;
@@ -767,7 +772,7 @@ body {
   color: var(--muted);
 }
 
-.history-delete {
+.history-action {
   flex: none;
 }
 
