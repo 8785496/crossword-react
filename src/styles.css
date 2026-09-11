@@ -178,6 +178,15 @@ body {
   padding: 12px 14px calc(96px + env(safe-area-inset-bottom));
 }
 
+/* Phones: tighter side fields give the crossword more width for bigger
+   cells; the report and clue lists just gain a little room. */
+@media (max-width: 480px) {
+  .main {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
 .hidden-input {
   display: none;
 }
@@ -583,8 +592,53 @@ body {
   outline-offset: -1px;
 }
 
-.settings-cache-btn {
+.settings-wide-btn {
   width: 100%;
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+
+.settings-field label {
+  font-size: 0.95rem;
+}
+
+.settings-input {
+  width: 104px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 1rem;
+  text-align: center;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--cell-border);
+  border-radius: 10px;
+}
+
+/* Value is outside GENERATOR_LIMITS until the field loses focus. */
+.settings-input.invalid {
+  border-color: var(--wrong-border);
+  color: var(--wrong-text);
+}
+
+.settings-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.settings-input::placeholder {
+  color: var(--muted);
+}
+
+.settings-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .settings-hint {
@@ -661,6 +715,35 @@ body {
 }
 
 /* ============ Settings ============ */
+/* Compact classic tabs: text + accent underline instead of big filled pills. */
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  margin: 10px 0 2px;
+  border-bottom: 1.5px solid var(--surface-2);
+}
+
+.settings-tab {
+  min-height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  /* Overlap the row border so the active underline replaces it. */
+  margin-bottom: -1.5px;
+}
+
+.settings-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 .settings-subtitle {
   font-size: 0.85rem;
   text-transform: uppercase;

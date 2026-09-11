@@ -133,6 +133,9 @@ that JSON goes through the normal `validatePuzzle` path and is persisted as
   of the loaded file plus entered letters; re-validated on restore.
 - `localStorage["crossword.theme"]` — the theme id; falls back to `DEFAULT_THEME`
   (the paper theme) when nothing is stored.
+- `localStorage["crossword.generator.v1"]` = `{ maxW, maxH, attempts }` — manual
+  grid-generation overrides from the advanced settings tab; `null` = automatic
+  (device defaults). Applied on the next word-list load.
 
 ## Samples
 

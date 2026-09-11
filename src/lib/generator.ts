@@ -32,6 +32,20 @@ export interface GridProfile {
   targetRatio: number;
 }
 
+/** Manual tuning from the advanced settings tab. */
+export interface GeneratorOptions {
+  /**
+   * Overrides the number of full-layout attempts (the automatic default
+   * scales with the word count); the time budget still caps the total work.
+   */
+  attempts?: number;
+  /**
+   * Overrides the word-list-derived RNG seed: «обновить кроссворд» passes a
+   * fresh random seed to rebuild the same words into a different layout.
+   */
+  seed?: number;
+}
+
 export interface GeneratedPuzzle {
   puzzle: Puzzle;
   /** Answers placed without a single crossing (valid, but standalone). */
@@ -39,8 +53,8 @@ export interface GeneratedPuzzle {
 }
 
 /** Hard limits of the JSON contract enforced by validatePuzzle. */
-const MAX_GRID_W = 40;
-const MAX_GRID_H = 60;
+export const MAX_GRID_W = 40;
+export const MAX_GRID_H = 60;
 /** Safety net: generation must never freeze the UI for long. */
 const TIME_BUDGET_MS = 6000;
 
@@ -345,6 +359,7 @@ export function generatePuzzle(
   words: GeneratorWord[],
   profile: GridProfile,
   meta: PuzzleMeta = {},
+  options: GeneratorOptions = {},
 ): GeneratedPuzzle {
   if (words.length === 0) {
     throw new PuzzleError(['Список слов пуст — кроссворд строить не из чего.']);
@@ -361,11 +376,15 @@ export function generatePuzzle(
   const maxW = Math.min(MAX_GRID_W, profile.maxW);
   const maxH = Math.min(MAX_GRID_H, Math.max(profile.maxH, longest));
 
-  const rng = mulberry32(hashSeed(answers.join('\n')));
+  const rng = mulberry32(options.seed ?? hashSeed(answers.join('\n')));
   const deadline = Date.now() + TIME_BUDGET_MS;
   // Attempt counts shrink for long lists to stay quick; the deadline above
-  // is only a safety net for pathological inputs.
-  const crossingAttempts = Math.max(100, Math.min(2000, Math.round(30000 / answers.length)));
+  // is only a safety net for pathological inputs. A manual attempts value
+  // from the settings replaces the automatic count as-is.
+  const crossingAttempts =
+    options.attempts !== undefined
+      ? Math.max(1, Math.round(options.attempts))
+      : Math.max(100, Math.min(2000, Math.round(30000 / answers.length)));
   const relaxedAttempts = Math.max(20, Math.round(crossingAttempts / 3));
 
   // Holder object (not a bare `let`) so assignments inside the closures

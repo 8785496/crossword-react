@@ -58,6 +58,28 @@ describe('generatePuzzle', () => {
   );
 
   it(
+    'honors the manual attempts override and still satisfies the contract',
+    () => {
+      const { puzzle, isolated } = generatePuzzle(cosmos, PHONE, {}, { attempts: 50 });
+      const vp = validatePuzzle(puzzle);
+      expect(vp.words).toHaveLength(cosmos.length);
+      expect(isolated).toEqual([]);
+    },
+    20_000,
+  );
+
+  it(
+    'is deterministic for a manual seed (the «обновить» path)',
+    () => {
+      const a = generatePuzzle(cosmos, PHONE, {}, { seed: 12345 }).puzzle;
+      const b = generatePuzzle(cosmos, PHONE, {}, { seed: 12345 }).puzzle;
+      expect(a).toEqual(b);
+      validatePuzzle(a);
+    },
+    20_000,
+  );
+
+  it(
     'keeps the grid width within the profile cap',
     () => {
       expect(generatePuzzle(cosmos, PHONE).puzzle.grid.width).toBeLessThanOrEqual(PHONE.maxW);

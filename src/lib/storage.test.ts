@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearPersistedState, loadSavedState, persistState } from './storage';
+import {
+  clearPersistedState,
+  loadGeneratorSettings,
+  loadSavedState,
+  persistGeneratorSettings,
+  persistState,
+} from './storage';
 
 /** Minimal localStorage stand-in for the Node test environment. */
 class MemoryStorage {
@@ -64,5 +70,39 @@ describe('saved state', () => {
     });
     expect(() => persistState({ raw: 'x', entries: {} })).not.toThrow();
     expect(() => clearPersistedState()).not.toThrow();
+  });
+});
+
+describe('generator settings', () => {
+  it('returns automatic defaults when nothing is stored', () => {
+    expect(loadGeneratorSettings()).toEqual({ maxW: null, maxH: null, attempts: null });
+  });
+
+  it('round-trips manual overrides', () => {
+    const settings = { maxW: 12, maxH: 24, attempts: 500 };
+    persistGeneratorSettings(settings);
+    expect(loadGeneratorSettings()).toEqual(settings);
+  });
+
+  it('falls back to automatic for out-of-range values', () => {
+    localStorage.setItem(
+      'crossword.generator.v1',
+      JSON.stringify({ maxW: 999, maxH: -3, attempts: 0 }),
+    );
+    expect(loadGeneratorSettings()).toEqual({ maxW: null, maxH: null, attempts: null });
+  });
+
+  it('falls back to automatic for corrupted JSON', () => {
+    localStorage.setItem('crossword.generator.v1', '{broken');
+    expect(loadGeneratorSettings()).toEqual({ maxW: null, maxH: null, attempts: null });
+  });
+
+  it('swallows storage failures (quota, missing backend)', () => {
+    vi.stubGlobal('localStorage', {
+      setItem: () => {
+        throw new Error('quota exceeded');
+      },
+    });
+    expect(() => persistGeneratorSettings({ maxW: 10, maxH: null, attempts: null })).not.toThrow();
   });
 });

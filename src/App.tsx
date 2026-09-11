@@ -10,8 +10,15 @@ import { IconX } from './components/icons';
 import { PuzzleError, cellKey, normalizeAnswer, validatePuzzle } from './lib/puzzle';
 import { parseCsvWords, readFileText, type CsvWord } from './lib/csv';
 import { parseXlsxWords } from './lib/xlsx';
-import { generatePuzzle, type GridProfile } from './lib/generator';
-import { clearPersistedState, loadSavedState, persistState } from './lib/storage';
+import { generatePuzzle, type GeneratorOptions, type GridProfile } from './lib/generator';
+import {
+  clearPersistedState,
+  loadGeneratorSettings,
+  loadSavedState,
+  persistGeneratorSettings,
+  persistState,
+  type GeneratorSettings,
+} from './lib/storage';
 import { applyTheme, loadTheme } from './themes';
 import type { Direction, PlacedWord, ValidatedPuzzle } from './types';
 import sampleCosmos from './samples/cosmos.json';
@@ -52,6 +59,8 @@ export default function App() {
   const [entries, setEntries] = useState<Record<string, string>>(() => saved?.entries ?? {});
 
   const [theme, setTheme] = useState<string>(() => loadTheme());
+  // Manual generator overrides from the advanced settings (null = auto).
+  const [generator, setGenerator] = useState<GeneratorSettings>(() => loadGeneratorSettings());
   const [marks, setMarks] = useState<Record<string, boolean>>({});
   // Words confirmed by the Check button (never computed on the fly).
   const [checkedWordIds, setCheckedWordIds] = useState<Set<string>>(new Set());
@@ -68,6 +77,11 @@ export default function App() {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  // Persist the generator overrides (a preference, like the theme).
+  useEffect(() => {
+    persistGeneratorSettings(generator);
+  }, [generator]);
 
   // Without an in-app header, the crossword title lives in the browser tab.
   useEffect(() => {
@@ -130,23 +144,64 @@ export default function App() {
   // Grid shape preferences for the current device, read once per word-list
   // load: phones get a compact, slightly vertical grid, tablets a wide
   // layout with more cells across than down (targetRatio is height / width).
+  // Manual sizes from the advanced settings win over the device defaults.
   const gridProfile = (): GridProfile => {
     const shortSide = Math.min(window.innerWidth, window.innerHeight);
-    return shortSide < 480
-      ? { maxW: 14, maxH: 26, targetRatio: 1.1 }
-      : { maxW: 20, maxH: 32, targetRatio: 0.8 };
+    const auto =
+      shortSide < 480
+        ? { maxW: 14, maxH: 26, targetRatio: 1.1 }
+        : { maxW: 20, maxH: 32, targetRatio: 0.8 };
+    return {
+      maxW: generator.maxW ?? auto.maxW,
+      maxH: generator.maxH ?? auto.maxH,
+      targetRatio: auto.targetRatio,
+    };
   };
 
   // CSV and XLSX lists take the same path: parse the two-column list,
   // generate the grid, then persist the generated layout like a normal
   // puzzle so progress survives a restart via validatePuzzle.
   const loadWordList = async (words: CsvWord[] | Promise<CsvWord[]>, title: string) => {
-    const { puzzle, isolated } = generatePuzzle(await words, gridProfile(), { title });
+    const options = generator.attempts !== null ? { attempts: generator.attempts } : {};
+    const { puzzle, isolated } = generatePuzzle(await words, gridProfile(), { title }, options);
     applyLoaded(validatePuzzle(puzzle), JSON.stringify(puzzle));
     if (isolated.length > 0) {
       setLoadWarning([
         `Эти слова удалось разместить без пересечений с другими: ${isolated.join(', ')}.`,
       ]);
+    }
+  };
+
+  // «Обновить кроссворд»: rebuild the same words into a fresh layout with a
+  // new random seed, so the current generator settings apply without
+  // reloading the file. Wipes the entered letters via applyLoaded. Returns
+  // whether the rebuild succeeded (the dialog closes only on success).
+  const regeneratePuzzle = (): boolean => {
+    if (!puzzle) return false;
+    try {
+      const words = puzzle.words.map((w) => ({ answer: w.answer, clue: w.clue }));
+      const options: GeneratorOptions = { seed: Math.floor(Math.random() * 0x7fffffff) };
+      if (generator.attempts !== null) options.attempts = generator.attempts;
+      const { puzzle: next, isolated } = generatePuzzle(
+        words,
+        gridProfile(),
+        { title: puzzle.meta.title },
+        options,
+      );
+      applyLoaded(validatePuzzle(next), JSON.stringify(next));
+      if (isolated.length > 0) {
+        setLoadWarning([
+          `Эти слова удалось разместить без пересечений с другими: ${isolated.join(', ')}.`,
+        ]);
+      }
+      return true;
+    } catch (e) {
+      setLoadError(
+        e instanceof PuzzleError
+          ? e.issues
+          : [`Собрать кроссворд заново не удалось: ${String(e)}`],
+      );
+      return false;
     }
   };
 
@@ -391,6 +446,12 @@ export default function App() {
         <SettingsDialog
           theme={theme}
           onThemeChange={setTheme}
+          generator={generator}
+          onGeneratorChange={setGenerator}
+          canRegenerate={puzzle !== null}
+          onRegenerate={() => {
+            if (regeneratePuzzle()) setSettingsOpen(false);
+          }}
           onClose={() => setSettingsOpen(false)}
         />
       )}
