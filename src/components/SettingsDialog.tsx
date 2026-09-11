@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconX } from './icons';
 import { THEMES } from '../themes';
 import {
@@ -37,6 +37,27 @@ export default function SettingsDialog({
   onClose,
 }: Props) {
   const [tab, setTab] = useState<Tab>('basic');
+  // Regeneration is a synchronous search that can hold the main thread for
+  // seconds: flip the button first and give the browser a frame to paint it.
+  const [regenLoading, setRegenLoading] = useState(false);
+  const regenTimer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (regenTimer.current !== null) clearTimeout(regenTimer.current);
+    },
+    [],
+  );
+
+  const handleRegenerate = () => {
+    if (regenLoading) return;
+    setRegenLoading(true);
+    regenTimer.current = window.setTimeout(() => {
+      regenTimer.current = null;
+      onRegenerate();
+      setRegenLoading(false);
+    }, 50);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -186,11 +207,12 @@ export default function SettingsDialog({
             <div className="settings-actions">
               <button
                 type="button"
-                className="btn primary settings-wide-btn"
-                disabled={!canRegenerate}
-                onClick={onRegenerate}
+                className={`btn primary settings-wide-btn${regenLoading ? ' loading' : ''}`}
+                disabled={!canRegenerate || regenLoading}
+                onClick={handleRegenerate}
               >
-                Обновить кроссворд
+                {regenLoading && <span className="btn-spinner" aria-hidden="true" />}
+                {regenLoading ? 'Собираю…' : 'Обновить кроссворд'}
               </button>
               <button
                 type="button"
