@@ -1,10 +1,20 @@
 import type { ReactNode } from 'react';
-import { IconCheckCircle, IconEye, IconEyeOff, IconFolder, IconGear } from './icons';
+import {
+  IconCheckCircle,
+  IconEye,
+  IconEyeOff,
+  IconFolder,
+  IconGear,
+  IconHistory,
+} from './icons';
 
 interface Props {
   hasPuzzle: boolean;
   answersShown: boolean;
+  /** Сколько кроссвордов лежит в истории; 0 — кнопка неактивна. */
+  historyCount: number;
   onNew: () => void;
+  onHistory: () => void;
   onCheck: () => void;
   onToggleAnswers: () => void;
   onSettings: () => void;
@@ -37,7 +47,9 @@ function FooterButton({ icon, label, onClick, disabled, active }: ButtonProps) {
 export default function Footer({
   hasPuzzle,
   answersShown,
+  historyCount,
   onNew,
+  onHistory,
   onCheck,
   onToggleAnswers,
   onSettings,
@@ -45,6 +57,12 @@ export default function Footer({
   return (
     <footer className="footer">
       <FooterButton icon={<IconFolder />} label="Новый" onClick={onNew} />
+      <FooterButton
+        icon={<IconHistory />}
+        label="История"
+        onClick={onHistory}
+        disabled={historyCount === 0}
+      />
       <FooterButton
         icon={<IconCheckCircle />}
         label="Проверить"

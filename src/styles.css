@@ -714,6 +714,70 @@ body {
   line-height: 1.5;
 }
 
+/* ============ History ============ */
+.history-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--surface-2);
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-open:active {
+  background: var(--word-bg);
+}
+
+.history-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.history-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.history-delete {
+  flex: none;
+}
+
+.history-empty {
+  margin: 14px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 /* ============ Settings ============ */
 /* Compact classic tabs: text + accent underline instead of big filled pills. */
 .settings-tabs {

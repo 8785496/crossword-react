@@ -38,6 +38,73 @@ export function clearPersistedState(): void {
   }
 }
 
+/** A crossword set aside earlier, kept so the История dialog can reopen it. */
+export interface HistoryEntry {
+  /** Raw puzzle JSON — the same text that was validated at load time. */
+  raw: string;
+  /** Puzzle or file title; may be empty. */
+  title: string;
+  /** Letters entered when the puzzle was set aside, by «row:col» keys. */
+  entries: Record<string, string>;
+  /** When the entry was last touched (epoch ms). */
+  savedAt: number;
+}
+
+const HISTORY_KEY = 'crossword.history.v1';
+/** Oldest entries beyond this cap are dropped (each keeps a full raw JSON). */
+export const HISTORY_LIMIT = 100;
+
+export function loadHistory(): HistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const list: HistoryEntry[] = [];
+    for (const item of parsed) {
+      if (typeof item !== 'object' || item === null) continue;
+      const e = item as Partial<HistoryEntry>;
+      if (typeof e.raw !== 'string' || e.raw === '') continue;
+      const entries: Record<string, string> = {};
+      if (typeof e.entries === 'object' && e.entries !== null) {
+        for (const [k, v] of Object.entries(e.entries)) {
+          if (typeof v === 'string') entries[k] = v;
+        }
+      }
+      list.push({
+        raw: e.raw,
+        title: typeof e.title === 'string' ? e.title : '',
+        entries,
+        savedAt: typeof e.savedAt === 'number' ? e.savedAt : 0,
+      });
+    }
+    return list.slice(0, HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+export function persistHistory(list: HistoryEntry[]): void {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearHistory(): void {
+  try {
+    localStorage.removeItem(HISTORY_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Newest first; re-saving a raw moves it to the front and replaces its record. */
+export function pushHistoryEntry(list: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
+  return [entry, ...list.filter((h) => h.raw !== entry.raw)].slice(0, HISTORY_LIMIT);
+}
+
 /** Manual grid-generation overrides; null means «pick automatically». */
 export interface GeneratorSettings {
   /** Максимальная ширина сетки в клетках. */

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import CrosswordGrid from './components/CrosswordGrid';
 import WordDialog from './components/WordDialog';
 import SettingsDialog from './components/SettingsDialog';
+import HistoryDialog from './components/HistoryDialog';
 import ClueLists from './components/ClueLists';
 import Footer from './components/Footer';
 import Welcome from './components/Welcome';
@@ -14,10 +15,14 @@ import { generatePuzzle, type GeneratorOptions, type GridProfile } from './lib/g
 import {
   clearPersistedState,
   loadGeneratorSettings,
+  loadHistory,
   loadSavedState,
   persistGeneratorSettings,
+  persistHistory,
   persistState,
+  pushHistoryEntry,
   type GeneratorSettings,
+  type HistoryEntry,
 } from './lib/storage';
 import { applyTheme, loadTheme } from './themes';
 import type { Direction, PlacedWord, ValidatedPuzzle } from './types';
@@ -69,6 +74,8 @@ export default function App() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [draft, setDraft] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [loadError, setLoadError] = useState<string[] | null>(null);
   const [loadWarning, setLoadWarning] = useState<string[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +100,11 @@ export default function App() {
     if (puzzle && rawJson) persistState({ raw: rawJson, entries });
     else clearPersistedState();
   }, [puzzle, rawJson, entries]);
+
+  // Persist the history of set-aside crosswords.
+  useEffect(() => {
+    persistHistory(history);
+  }, [history]);
 
   // Auto-hide the check report.
   useEffect(() => {
@@ -129,16 +141,49 @@ export default function App() {
     return { across: filled('across'), down: filled('down') };
   }, [puzzle, entries]);
 
-  const applyLoaded = (vp: ValidatedPuzzle, raw: string) => {
+  const applyLoaded = (vp: ValidatedPuzzle, raw: string, restoredEntries: Record<string, string> = {}) => {
+    // The outgoing crossword keeps its progress in the history dialog; raw
+    // dedupe in pushHistoryEntry folds re-saved layouts into one record.
+    if (puzzle && rawJson) {
+      setHistory((prev) =>
+        pushHistoryEntry(prev, {
+          raw: rawJson,
+          title: puzzle.meta.title ?? '',
+          entries,
+          savedAt: Date.now(),
+        }),
+      );
+    }
     setPuzzle(vp);
     setRawJson(raw);
-    setEntries({});
+    setEntries(restoredEntries);
     setMarks({});
     setCheckedWordIds(new Set());
     setAnswersShown(false);
     setReport(null);
     setDialog(null);
     setLoadWarning(null);
+  };
+
+  // Reopen a crossword from the history with its saved letters. The entry
+  // leaves the list because it becomes the current crossword again.
+  const openFromHistory = (entry: HistoryEntry) => {
+    let vp: ValidatedPuzzle;
+    try {
+      vp = validatePuzzle(JSON.parse(entry.raw));
+    } catch {
+      setHistory((prev) => prev.filter((h) => h.raw !== entry.raw));
+      setLoadError(['Этот кроссворд повреждён и удалён из истории.']);
+      return;
+    }
+    const validKeys = new Set(vp.cells.keys());
+    const restored: Record<string, string> = {};
+    for (const [k, v] of Object.entries(entry.entries)) {
+      if (validKeys.has(k) && v) restored[k] = v;
+    }
+    setHistory((prev) => prev.filter((h) => h.raw !== entry.raw));
+    applyLoaded(vp, entry.raw, restored);
+    setHistoryOpen(false);
   };
 
   // Grid shape preferences for the current device, read once per word-list
@@ -203,6 +248,18 @@ export default function App() {
       );
       return false;
     }
+  };
+
+  // «Начать заново»: wipe the entered letters of the current crossword but
+  // keep the puzzle itself, so the same grid can be solved from scratch.
+  const restartPuzzle = () => {
+    if (!puzzle) return;
+    setEntries({});
+    setMarks({});
+    setCheckedWordIds(new Set());
+    setAnswersShown(false);
+    setReport(null);
+    setDialog(null);
   };
 
   const handleFile = async (file: File) => {
@@ -422,7 +479,9 @@ export default function App() {
       <Footer
         hasPuzzle={puzzle !== null}
         answersShown={answersShown}
+        historyCount={history.length}
         onNew={() => fileInputRef.current?.click()}
+        onHistory={() => setHistoryOpen(true)}
         onCheck={handleCheck}
         onToggleAnswers={() => setAnswersShown((v) => !v)}
         onSettings={() => setSettingsOpen(true)}
@@ -452,7 +511,21 @@ export default function App() {
           onRegenerate={() => {
             if (regeneratePuzzle()) setSettingsOpen(false);
           }}
+          canRestart={puzzle !== null}
+          onRestart={() => {
+            restartPuzzle();
+            setSettingsOpen(false);
+          }}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {historyOpen && (
+        <HistoryDialog
+          items={history}
+          onOpen={openFromHistory}
+          onDelete={(entry) => setHistory((prev) => prev.filter((h) => h.raw !== entry.raw))}
+          onClose={() => setHistoryOpen(false)}
         />
       )}
 

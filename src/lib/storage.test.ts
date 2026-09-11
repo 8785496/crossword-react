@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  clearHistory,
   clearPersistedState,
+  HISTORY_LIMIT,
   loadGeneratorSettings,
+  loadHistory,
   loadSavedState,
   persistGeneratorSettings,
+  persistHistory,
   persistState,
+  pushHistoryEntry,
+  type HistoryEntry,
 } from './storage';
 
 /** Minimal localStorage stand-in for the Node test environment. */
@@ -70,6 +76,82 @@ describe('saved state', () => {
     });
     expect(() => persistState({ raw: 'x', entries: {} })).not.toThrow();
     expect(() => clearPersistedState()).not.toThrow();
+  });
+});
+
+describe('crossword history', () => {
+  const entry = (raw: string, savedAt = 1000): HistoryEntry => ({
+    raw,
+    title: `title-${raw}`,
+    entries: { '0:0': 'К' },
+    savedAt,
+  });
+
+  it('returns an empty list when nothing is stored', () => {
+    expect(loadHistory()).toEqual([]);
+  });
+
+  it('round-trips saved entries', () => {
+    const list = [entry('a'), entry('b')];
+    persistHistory(list);
+    expect(loadHistory()).toEqual(list);
+  });
+
+  it('returns an empty list for corrupted JSON', () => {
+    localStorage.setItem('crossword.history.v1', '{broken');
+    expect(loadHistory()).toEqual([]);
+  });
+
+  it('drops malformed records and non-string entry letters', () => {
+    localStorage.setItem(
+      'crossword.history.v1',
+      JSON.stringify([
+        42,
+        { raw: '', title: 'x', entries: {} },
+        { raw: 'ok', entries: { '0:0': 'К', '1:1': 7 }, savedAt: 'nope' },
+      ]),
+    );
+    expect(loadHistory()).toEqual([
+      { raw: 'ok', title: '', entries: { '0:0': 'К' }, savedAt: 0 },
+    ]);
+  });
+
+  it('caps the stored list length', () => {
+    persistHistory(Array.from({ length: HISTORY_LIMIT + 5 }, (_, i) => entry(`r${i}`)));
+    expect(loadHistory()).toHaveLength(HISTORY_LIMIT);
+  });
+
+  it('pushes to the front and dedupes by raw', () => {
+    let list = pushHistoryEntry([], entry('a'));
+    list = pushHistoryEntry(list, entry('b'));
+    expect(list.map((e) => e.raw)).toEqual(['b', 'a']);
+    const again = pushHistoryEntry(list, entry('a', 2000));
+    expect(again.map((e) => e.raw)).toEqual(['a', 'b']);
+    expect(again).toHaveLength(2);
+    expect(again[0].savedAt).toBe(2000);
+  });
+
+  it('caps pushed history to HISTORY_LIMIT', () => {
+    let list: HistoryEntry[] = [];
+    for (let i = 0; i < HISTORY_LIMIT + 3; i++) list = pushHistoryEntry(list, entry(`r${i}`));
+    expect(list).toHaveLength(HISTORY_LIMIT);
+    expect(list[0].raw).toBe(`r${HISTORY_LIMIT + 2}`);
+  });
+
+  it('clears the stored history', () => {
+    persistHistory([entry('a')]);
+    clearHistory();
+    expect(loadHistory()).toEqual([]);
+  });
+
+  it('swallows storage failures (quota, missing backend)', () => {
+    vi.stubGlobal('localStorage', {
+      setItem: () => {
+        throw new Error('quota exceeded');
+      },
+    });
+    expect(() => persistHistory([entry('a')])).not.toThrow();
+    expect(() => clearHistory()).not.toThrow();
   });
 });
 
