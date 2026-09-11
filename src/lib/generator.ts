@@ -384,7 +384,7 @@ export function generatePuzzle(
   const crossingAttempts =
     options.attempts !== undefined
       ? Math.max(1, Math.round(options.attempts))
-      : Math.max(100, Math.min(2000, Math.round(30000 / answers.length)));
+      : Math.max(200, Math.min(30000, Math.round(600000 / answers.length)));
   const relaxedAttempts = Math.max(20, Math.round(crossingAttempts / 3));
 
   // Holder object (not a bare `let`) so assignments inside the closures
