@@ -37,6 +37,8 @@ export default function SettingsDialog({
   onClose,
 }: Props) {
   const [tab, setTab] = useState<Tab>('basic');
+  // «Очистить кеш» wipes history and progress, so it asks first.
+  const [confirmingClear, setConfirmingClear] = useState(false);
   // Regeneration is a synchronous search that can hold the main thread for
   // seconds: flip the button first and give the browser a frame to paint it.
   const [regenLoading, setRegenLoading] = useState(false);
@@ -61,11 +63,15 @@ export default function SettingsDialog({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        // Escape dismisses only the confirmation while it is open.
+        if (confirmingClear) setConfirmingClear(false);
+        else onClose();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, confirmingClear]);
 
   // Drop every cached asset and the service worker itself, reset the solving
   // progress and reload: the app then starts from the welcome screen. The
@@ -189,7 +195,11 @@ export default function SettingsDialog({
             </div>
 
             <h3 className="settings-subtitle">Приложение</h3>
-            <button type="button" className="btn ghost settings-wide-btn" onClick={clearCache}>
+            <button
+              type="button"
+              className="btn ghost settings-wide-btn"
+              onClick={() => setConfirmingClear(true)}
+            >
               Очистить кеш
             </button>
             <p className="settings-hint">
@@ -229,6 +239,41 @@ export default function SettingsDialog({
           </>
         )}
       </div>
+
+      {confirmingClear && (
+        <div
+          className="overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setConfirmingClear(false);
+          }}
+        >
+          <div className="dialog" role="alertdialog" aria-modal="true" aria-label="Очистить кеш?">
+            <div className="dialog-head">
+              <h2>Очистить кеш?</h2>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setConfirmingClear(false)}
+                aria-label="Закрыть"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+            <p className="dialog-text">
+              История кроссвордов и прогресс решения будут удалены без возможности
+              восстановления.
+            </p>
+            <div className="dialog-actions">
+              <button type="button" className="btn ghost" onClick={() => setConfirmingClear(false)}>
+                Отмена
+              </button>
+              <button type="button" className="btn primary" onClick={clearCache}>
+                Очистить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

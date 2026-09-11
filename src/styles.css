@@ -648,6 +648,12 @@ body {
   color: var(--muted);
 }
 
+.dialog-text {
+  margin: 14px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;
