@@ -38,21 +38,30 @@ export function clearPersistedState(): void {
   }
 }
 
-/** A crossword set aside earlier, kept so the История dialog can reopen it. */
+/** A cached crossword in the История list; several records may share a raw. */
 export interface HistoryEntry {
+  /** Unique record id — one per solving attempt, so copies stay distinct. */
+  id: string;
   /** Raw puzzle JSON — the same text that was validated at load time. */
   raw: string;
   /** Puzzle or file title; may be empty. */
   title: string;
-  /** Letters entered when the puzzle was set aside, by «row:col» keys. */
+  /** Letters entered when the record was last touched, by «row:col» keys. */
   entries: Record<string, string>;
-  /** When the entry was last touched (epoch ms). */
+  /** When the record's letters last changed (epoch ms). */
   savedAt: number;
 }
 
 const HISTORY_KEY = 'crossword.history.v1';
 /** Oldest entries beyond this cap are dropped (each keeps a full raw JSON). */
 export const HISTORY_LIMIT = 100;
+
+/** Unique id for a history record; works without a secure-context crypto. */
+export function makeHistoryId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export function loadHistory(): HistoryEntry[] {
   try {
@@ -72,6 +81,7 @@ export function loadHistory(): HistoryEntry[] {
         }
       }
       list.push({
+        id: typeof e.id === 'string' && e.id !== '' ? e.id : makeHistoryId(),
         raw: e.raw,
         title: typeof e.title === 'string' ? e.title : '',
         entries,
@@ -98,11 +108,6 @@ export function clearHistory(): void {
   } catch {
     /* ignore */
   }
-}
-
-/** Newest first; re-saving a raw moves it to the front and replaces its record. */
-export function pushHistoryEntry(list: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
-  return [entry, ...list.filter((h) => h.raw !== entry.raw)].slice(0, HISTORY_LIMIT);
 }
 
 /** Manual grid-generation overrides; null means «pick automatically». */

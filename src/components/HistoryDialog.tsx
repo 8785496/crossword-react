@@ -5,10 +5,10 @@ import type { HistoryEntry } from '../lib/storage';
 
 interface Props {
   items: HistoryEntry[];
-  /** raw открытого сейчас кроссворда — его запись помечается в списке. */
-  currentRaw: string | null;
+  /** id записи кроссворда, открытого сейчас, — она помечается в списке. */
+  currentId: string | null;
   onOpen: (entry: HistoryEntry) => void;
-  /** Открыть кроссворд заново: без сохранённых букв. */
+  /** Открыть кроссворд заново: создаёт пустую копию записи. */
   onRestart: (entry: HistoryEntry) => void;
   onDelete: (entry: HistoryEntry) => void;
   onClose: () => void;
@@ -26,7 +26,7 @@ function formatDate(ts: number): string {
 
 export default function HistoryDialog({
   items,
-  currentRaw,
+  currentId,
   onOpen,
   onRestart,
   onDelete,
@@ -42,33 +42,36 @@ export default function HistoryDialog({
 
   // Progress per entry: the stored raw is re-validated so a damaged record
   // degrades to a label instead of crashing the dialog.
+  // Newest changes first; the date only moves when a crossword's letters do.
   const views = useMemo(
     () =>
-      items.map((entry) => {
-        const current = entry.raw === currentRaw;
-        const suffix = current ? ' · сейчас открыт' : ` · ${formatDate(entry.savedAt)}`;
-        try {
-          const vp = validatePuzzle(JSON.parse(entry.raw));
-          let solved = 0;
-          for (const w of vp.words) {
-            if (
-              w.cells.every(
-                (c, i) => (entry.entries[cellKey(c.row, c.col)] ?? '') === w.answer[i],
-              )
-            ) {
-              solved++;
+      items
+        .map((entry) => {
+          const current = entry.id === currentId;
+          const suffix = current ? ' · сейчас открыт' : ` · ${formatDate(entry.savedAt)}`;
+          try {
+            const vp = validatePuzzle(JSON.parse(entry.raw));
+            let solved = 0;
+            for (const w of vp.words) {
+              if (
+                w.cells.every(
+                  (c, i) => (entry.entries[cellKey(c.row, c.col)] ?? '') === w.answer[i],
+                )
+              ) {
+                solved++;
+              }
             }
+            return {
+              entry,
+              current,
+              label: `Решено ${solved} из ${vp.words.length}${suffix}`,
+            };
+          } catch {
+            return { entry, current, label: `Запись повреждена${suffix}` };
           }
-          return {
-            entry,
-            current,
-            label: `Решено ${solved} из ${vp.words.length}${suffix}`,
-          };
-        } catch {
-          return { entry, current, label: `Запись повреждена${suffix}` };
-        }
-      }),
-    [items, currentRaw],
+        })
+        .sort((a, b) => b.entry.savedAt - a.entry.savedAt),
+    [items, currentId],
   );
 
   return (

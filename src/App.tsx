@@ -14,13 +14,14 @@ import { parseXlsxWords } from './lib/xlsx';
 import { generatePuzzle, type GeneratorOptions, type GridProfile } from './lib/generator';
 import {
   clearPersistedState,
+  HISTORY_LIMIT,
   loadGeneratorSettings,
   loadHistory,
   loadSavedState,
+  makeHistoryId,
   persistGeneratorSettings,
   persistHistory,
   persistState,
-  pushHistoryEntry,
   type GeneratorSettings,
   type HistoryEntry,
 } from './lib/storage';
@@ -45,6 +46,21 @@ const sameEntries = (a: Record<string, string>, b: Record<string, string>): bool
   const keys = Object.keys(a);
   if (keys.length !== Object.keys(b).length) return false;
   return keys.every((k) => a[k] === b[k]);
+};
+
+// Touch a record's letters and date; a no-op when nothing really changed, so
+// merely opening a crossword never moves its date.
+const withRecordEntries = (
+  list: HistoryEntry[],
+  id: string,
+  entries: Record<string, string>,
+  savedAt: number,
+): HistoryEntry[] => {
+  const i = list.findIndex((h) => h.id === id);
+  if (i < 0 || sameEntries(list[i].entries, entries)) return list;
+  const next = [...list];
+  next[i] = { ...list[i], entries, savedAt };
+  return next;
 };
 
 export default function App() {
@@ -81,6 +97,8 @@ export default function App() {
   const [draft, setDraft] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
+  // History record of the crossword open right now.
+  const [currentId, setCurrentId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loadError, setLoadError] = useState<string[] | null>(null);
   const [loadWarning, setLoadWarning] = useState<string[] | null>(null);
@@ -116,34 +134,30 @@ export default function App() {
   // so the open puzzle is always part of it.
   useEffect(() => {
     if (!puzzle || !rawJson) return;
-    setHistory((prev) =>
-      prev.some((h) => h.raw === rawJson)
-        ? prev
-        : pushHistoryEntry(prev, {
-            raw: rawJson,
-            title: puzzle.meta.title ?? '',
-            entries: saved?.entries ?? {},
-            savedAt: Date.now(),
-          }),
-    );
+    const existing = history.find((h) => h.raw === rawJson);
+    if (existing) {
+      setCurrentId(existing.id);
+      return;
+    }
+    const record: HistoryEntry = {
+      id: makeHistoryId(),
+      raw: rawJson,
+      title: puzzle.meta.title ?? '',
+      entries: saved?.entries ?? {},
+      savedAt: Date.now(),
+    };
+    setHistory((prev) => [record, ...prev].slice(0, HISTORY_LIMIT));
+    setCurrentId(record.id);
     // Only on mount: the restore happens once per session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The open crossword's history record follows the letters being entered,
-  // so the dialog always shows live progress.
+  // The open crossword's record follows the letters being entered, so the
+  // dialog always shows live progress and a date of the last change.
   useEffect(() => {
-    if (!puzzle || !rawJson) return;
-    setHistory((prev) => {
-      const i = prev.findIndex((h) => h.raw === rawJson);
-      if (i < 0) return prev;
-      const cur = prev[i];
-      if (sameEntries(cur.entries, entries)) return prev;
-      const next = [...prev];
-      next[i] = { ...cur, entries, savedAt: Date.now() };
-      return next;
-    });
-  }, [puzzle, rawJson, entries]);
+    if (!currentId) return;
+    setHistory((prev) => withRecordEntries(prev, currentId, entries, Date.now()));
+  }, [currentId, entries]);
 
   // Auto-hide the check report.
   useEffect(() => {
@@ -180,26 +194,34 @@ export default function App() {
     return { across: filled('across'), down: filled('down') };
   }, [puzzle, entries]);
 
-  const applyLoaded = (vp: ValidatedPuzzle, raw: string, restoredEntries: Record<string, string> = {}) => {
-    // Both the outgoing and the incoming crossword stay in the history list;
-    // pushHistoryEntry dedupes by raw, so each layout keeps a single record.
+  const applyLoaded = (
+    vp: ValidatedPuzzle,
+    raw: string,
+    restoredEntries: Record<string, string> = {},
+    sourceId?: string,
+  ) => {
+    // The outgoing record keeps its letters and date; the incoming one reuses
+    // its record when opened from history, or starts a fresh one (a new file,
+    // a sample, a regenerated layout, a «Начать заново» copy).
+    const incomingId = sourceId ?? makeHistoryId();
     setHistory((prev) => {
       let next = prev;
-      if (puzzle && rawJson) {
-        next = pushHistoryEntry(next, {
-          raw: rawJson,
-          title: puzzle.meta.title ?? '',
-          entries,
-          savedAt: Date.now(),
-        });
+      if (currentId) next = withRecordEntries(next, currentId, entries, Date.now());
+      if (!next.some((h) => h.id === incomingId)) {
+        next = [
+          {
+            id: incomingId,
+            raw,
+            title: vp.meta.title ?? '',
+            entries: restoredEntries,
+            savedAt: Date.now(),
+          },
+          ...next,
+        ].slice(0, HISTORY_LIMIT);
       }
-      return pushHistoryEntry(next, {
-        raw,
-        title: vp.meta.title ?? '',
-        entries: restoredEntries,
-        savedAt: Date.now(),
-      });
+      return next;
     });
+    setCurrentId(incomingId);
     setPuzzle(vp);
     setRawJson(raw);
     setEntries(restoredEntries);
@@ -212,14 +234,14 @@ export default function App() {
   };
 
   // Reopen a crossword from the history; its record stays in the list. With
-  // fresh the saved letters are dropped («Начать заново»), so the same grid
-  // is solved from scratch.
+  // fresh a NEW empty record starts («Начать заново» makes a copy), so the
+  // original attempt keeps its progress.
   const openFromHistory = (entry: HistoryEntry, fresh = false) => {
     let vp: ValidatedPuzzle;
     try {
       vp = validatePuzzle(JSON.parse(entry.raw));
     } catch {
-      setHistory((prev) => prev.filter((h) => h.raw !== entry.raw));
+      setHistory((prev) => prev.filter((h) => h.id !== entry.id));
       setLoadError(['Этот кроссворд повреждён и удалён из истории.']);
       return;
     }
@@ -230,7 +252,7 @@ export default function App() {
         if (validKeys.has(k) && v) restored[k] = v;
       }
     }
-    applyLoaded(vp, entry.raw, restored);
+    applyLoaded(vp, entry.raw, restored, fresh ? undefined : entry.id);
     setHistoryOpen(false);
   };
 
@@ -554,7 +576,7 @@ export default function App() {
       {historyOpen && (
         <HistoryDialog
           items={history}
-          currentRaw={rawJson}
+          currentId={currentId}
           onOpen={openFromHistory}
           onRestart={(entry) => openFromHistory(entry, true)}
           onDelete={(entry) => setHistory((prev) => prev.filter((h) => h.raw !== entry.raw))}

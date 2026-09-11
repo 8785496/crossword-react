@@ -137,13 +137,15 @@ that JSON goes through the normal `validatePuzzle` path and is persisted as
   grid-generation overrides from the advanced settings tab; `null` = automatic
   (device defaults). Applied on the next word-list load.
 - `localStorage["crossword.history.v1"]` — the history list behind the footer
-  «История» button: up to `HISTORY_LIMIT` (100) cached crosswords as
-  `{ raw, title, entries, savedAt }`, newest first, deduped by `raw`
-  (`pushHistoryEntry` in `src/lib/storage.ts`). It includes the currently
-  open crossword, whose record follows the entered letters live; opening a
-  record keeps it in the list and restores its letters, the row's rotate
-  icon («Начать заново») reopens it without them, and the trash icon deletes
-  the record. «Очистить кеш» wipes the list.
+  «История» button: up to `HISTORY_LIMIT` (100) records as
+  `{ id, raw, title, entries, savedAt }` (see `src/lib/storage.ts`; legacy
+  records without an `id` get one on load). The list is a library: it
+  includes the currently open crossword, whose record follows the entered
+  letters live. `savedAt` is the date of the last letter change, not of
+  opening. Opening a record restores its letters; the row's rotate icon
+  («Начать заново») starts a NEW empty record with the same raw — a copy —
+  and opens it, leaving the original untouched; the trash icon deletes the
+  record. «Очистить кеш» wipes the list.
 
 ## Samples
 
